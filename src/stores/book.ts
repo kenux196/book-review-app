@@ -7,9 +7,14 @@ export const useBookStore = defineStore('book', () => {
 
   // Load from localStorage
   const loadBooks = () => {
-    const stored = localStorage.getItem('booklog-books')
-    if (stored) {
-      books.value = JSON.parse(stored)
+    try {
+      const stored = localStorage.getItem('booklog-books')
+      if (stored) {
+        books.value = JSON.parse(stored)
+      }
+    } catch (error) {
+      console.error('Failed to load books from localStorage:', error)
+      books.value = []
     }
   }
 
