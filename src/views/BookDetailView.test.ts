@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import BookDetailView from './BookDetailView.vue'
@@ -6,7 +6,7 @@ import { setupTestPinia, setupLocalStorageMock, clearLocalStorage } from '../tes
 import { useBookStore } from '../stores/book'
 import { createMockBook } from '../test-utils/mock-data'
 
-const createTestRouter = (bookId: string = 'test-book-id') => {
+const createTestRouter = (_bookId: string = 'test-book-id') => {
   return createRouter({
     history: createMemoryHistory(),
     routes: [
@@ -280,6 +280,100 @@ describe('BookDetailView', () => {
       await wrapper.vm.$nextTick()
 
       expect(wrapper.text()).toContain('Add Log')
+    })
+  })
+
+  describe('리뷰와 별점', () => {
+    it('"Review & Rating" 섹션이 표시되어야 함', async () => {
+      const store = useBookStore()
+      store.addBook(createMockBook({ id: 'test-book-id' }))
+
+      const router = createTestRouter('test-book-id')
+      await router.push('/books/test-book-id')
+
+      const wrapper = mount(BookDetailView, {
+        global: {
+          plugins: [router],
+        },
+      })
+
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.text()).toContain('Review & Rating')
+      expect(wrapper.text()).toContain('No review or rating yet')
+    })
+
+    it('별점을 선택하고 저장할 수 있어야 함', async () => {
+      const store = useBookStore()
+      store.addBook(createMockBook({ id: 'test-book-id' }))
+
+      const router = createTestRouter('test-book-id')
+      await router.push('/books/test-book-id')
+
+      const wrapper = mount(BookDetailView, {
+        global: {
+          plugins: [router],
+        },
+      })
+
+      await wrapper.vm.$nextTick()
+
+      await wrapper.get('button[aria-label="Rate 4 stars"]').trigger('click')
+      await wrapper.get('button[aria-label="Save review"]').trigger('click')
+
+      const updatedBook = store.getBookById('test-book-id')
+      expect(updatedBook?.rating).toBe(4)
+    })
+
+    it('리뷰를 입력하고 저장할 수 있어야 함', async () => {
+      const store = useBookStore()
+      store.addBook(createMockBook({ id: 'test-book-id' }))
+
+      const router = createTestRouter('test-book-id')
+      await router.push('/books/test-book-id')
+
+      const wrapper = mount(BookDetailView, {
+        global: {
+          plugins: [router],
+        },
+      })
+
+      await wrapper.vm.$nextTick()
+
+      await wrapper.get('textarea[placeholder="Write your thoughts about this book."]').setValue('좋은 문장이 많았다')
+      await wrapper.get('button[aria-label="Save review"]').trigger('click')
+
+      const updatedBook = store.getBookById('test-book-id')
+      expect(updatedBook?.review).toBe('좋은 문장이 많았다')
+      expect(wrapper.text()).toContain('좋은 문장이 많았다')
+    })
+
+    it('기존 리뷰와 별점을 수정할 수 있어야 함', async () => {
+      const store = useBookStore()
+      store.addBook(createMockBook({
+        id: 'test-book-id',
+        rating: 2,
+        review: '무난했다',
+      }))
+
+      const router = createTestRouter('test-book-id')
+      await router.push('/books/test-book-id')
+
+      const wrapper = mount(BookDetailView, {
+        global: {
+          plugins: [router],
+        },
+      })
+
+      await wrapper.vm.$nextTick()
+
+      await wrapper.get('button[aria-label="Rate 5 stars"]').trigger('click')
+      await wrapper.get('textarea[placeholder="Write your thoughts about this book."]').setValue('추천하고 싶은 책')
+      await wrapper.get('button[aria-label="Save review"]').trigger('click')
+
+      const updatedBook = store.getBookById('test-book-id')
+      expect(updatedBook?.rating).toBe(5)
+      expect(updatedBook?.review).toBe('추천하고 싶은 책')
     })
   })
 

@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import { useBookStore } from '../stores/book'
 import type { Book, BookStatus } from '../types/book'
-import { Plus, Search, Book as BookIcon } from 'lucide-vue-next'
+import { Plus, Search, Book as BookIcon, Star } from 'lucide-vue-next'
 
 const bookStore = useBookStore()
 
@@ -136,6 +136,15 @@ const getStatusLabel = (status: BookStatus) => {
           </div>
           <h3 class="font-semibold leading-none tracking-tight mb-1 line-clamp-1">{{ book.title }}</h3>
           <p class="text-sm text-muted-foreground mb-4 line-clamp-1">{{ book.author }}</p>
+
+          <div v-if="book.rating" class="mb-4 flex items-center gap-1 text-amber-400" :aria-label="`${book.title} rating ${book.rating}`">
+            <Star
+              v-for="rating in 5"
+              :key="`${book.id}-rating-${rating}`"
+              class="h-4 w-4"
+              :class="rating <= book.rating ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground'"
+            />
+          </div>
           
           <div class="mt-auto pt-4">
             <div class="flex items-center justify-between text-xs text-muted-foreground mb-2">

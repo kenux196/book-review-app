@@ -100,6 +100,43 @@ describe('BookListView', () => {
       expect(wrapper.text()).toContain('책 2')
       expect(wrapper.text()).toContain('책 3')
     })
+
+    it('별점이 있는 책은 카드에 별점을 표시해야 함', async () => {
+      const store = useBookStore()
+      store.addBook(createMockBook({
+        id: 'test-1',
+        title: '별점 있는 책',
+        rating: 4,
+      }))
+
+      const wrapper = mount(BookListView, {
+        global: {
+          plugins: [router],
+        },
+      })
+
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.find('[aria-label="별점 있는 책 rating 4"]').exists()).toBe(true)
+    })
+
+    it('별점이 없는 책은 별점 요약을 표시하지 않아야 함', async () => {
+      const store = useBookStore()
+      store.addBook(createMockBook({
+        id: 'test-1',
+        title: '별점 없는 책',
+      }))
+
+      const wrapper = mount(BookListView, {
+        global: {
+          plugins: [router],
+        },
+      })
+
+      await wrapper.vm.$nextTick()
+
+      expect(wrapper.find('[aria-label="별점 없는 책 rating 0"]').exists()).toBe(false)
+    })
   })
 
   describe('검색 기능', () => {
