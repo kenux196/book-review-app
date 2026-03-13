@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { useBookStore } from './book'
 import { setupTestPinia, setupLocalStorageMock, clearLocalStorage } from '../test-utils/setup'
 import { createMockBook, mockBooks } from '../test-utils/mock-data'
-import type { Book } from '../types/book'
 
 describe('useBookStore', () => {
   beforeEach(() => {
@@ -159,6 +158,40 @@ describe('useBookStore', () => {
       await new Promise(resolve => setTimeout(resolve, 0))
 
       expect(localStorage.setItem).toHaveBeenCalled()
+    })
+
+    it('rating과 review를 저장해야 함', () => {
+      const store = useBookStore()
+      const book = createMockBook({ id: 'test-id' })
+      store.addBook(book)
+
+      store.updateBook('test-id', { rating: 4, review: '다시 읽고 싶은 책' })
+
+      const updated = store.getBookById('test-id')
+      expect(updated?.rating).toBe(4)
+      expect(updated?.review).toBe('다시 읽고 싶은 책')
+    })
+
+    it('빈 review는 제거해야 함', () => {
+      const store = useBookStore()
+      const book = createMockBook({ id: 'test-id', review: '기존 리뷰' })
+      store.addBook(book)
+
+      store.updateBook('test-id', { review: '   ' })
+
+      const updated = store.getBookById('test-id')
+      expect(updated?.review).toBeUndefined()
+    })
+
+    it('범위를 벗어난 rating은 제거해야 함', () => {
+      const store = useBookStore()
+      const book = createMockBook({ id: 'test-id', rating: 5 })
+      store.addBook(book)
+
+      store.updateBook('test-id', { rating: 9 })
+
+      const updated = store.getBookById('test-id')
+      expect(updated?.rating).toBeUndefined()
     })
   })
 
