@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useBookStore } from '../stores/book'
 import type { Book, BookStatus } from '../types/book'
-import { ArrowLeft, BookOpen, Calendar, Trash2, CheckCircle } from 'lucide-vue-next'
+import { ArrowLeft, BookOpen, Calendar, Trash2, CheckCircle, Star } from 'lucide-vue-next'
 import { format } from 'date-fns'
 
 const route = useRoute()
@@ -17,6 +17,8 @@ const newLog = ref({
   endPage: 0,
   content: ''
 })
+const selectedRating = ref<number | undefined>(undefined)
+const reviewDraft = ref('')
 
 onMounted(() => {
   const id = route.params.id as string
@@ -24,12 +26,18 @@ onMounted(() => {
   if (book.value) {
     newLog.value.startPage = book.value.currentPage
     newLog.value.endPage = book.value.currentPage
+    selectedRating.value = book.value.rating
+    reviewDraft.value = book.value.review ?? ''
   }
 })
 
 const progressPercentage = computed(() => {
   if (!book.value) return 0
   return Math.round((book.value.currentPage / book.value.totalPages) * 100)
+})
+
+const hasReviewContent = computed(() => {
+  return Boolean(book.value?.rating || book.value?.review)
 })
 
 const handleUpdateStatus = (status: BookStatus) => {
@@ -79,6 +87,23 @@ const handleDelete = () => {
   if (!book.value || !confirm('Are you sure you want to delete this book?')) return
   bookStore.deleteBook(book.value.id)
   router.push('/books')
+}
+
+const handleSaveReview = () => {
+  if (!book.value) return
+
+  const review = reviewDraft.value.trim()
+  const updates = {
+    rating: selectedRating.value,
+    review: review || undefined
+  }
+
+  bookStore.updateBook(book.value.id, updates)
+  book.value = {
+    ...book.value,
+    ...updates
+  }
+  reviewDraft.value = book.value.review ?? ''
 }
 </script>
 
@@ -183,6 +208,77 @@ const handleDelete = () => {
             <div v-if="book.logs.length === 0" class="text-center py-8 text-muted-foreground text-sm">
               No reading logs yet.
             </div>
+          </div>
+        </div>
+
+        <div class="rounded-xl border bg-card text-card-foreground shadow-sm p-6 space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xl font-semibold">Review & Rating</h3>
+            <span v-if="book.rating" class="text-sm text-muted-foreground">{{ book.rating }}/5</span>
+          </div>
+
+          <div class="space-y-2">
+            <p class="text-sm font-medium">Rating</p>
+            <div class="flex items-center gap-2">
+              <button
+                v-for="rating in 5"
+                :key="rating"
+                type="button"
+                :aria-label="`Rate ${rating} stars`"
+                class="rounded-md p-1 transition-colors hover:bg-accent"
+                @click="selectedRating = rating"
+              >
+                <Star
+                  class="h-6 w-6"
+                  :class="rating <= (selectedRating ?? 0) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground'"
+                />
+              </button>
+              <button
+                v-if="selectedRating"
+                type="button"
+                aria-label="Clear rating"
+                class="text-sm text-muted-foreground hover:text-foreground"
+                @click="selectedRating = undefined"
+              >
+                Clear
+              </button>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <label for="review" class="text-sm font-medium">Review</label>
+            <textarea
+              id="review"
+              v-model="reviewDraft"
+              class="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              placeholder="Write your thoughts about this book."
+            />
+          </div>
+
+          <div class="flex items-center justify-between gap-4">
+            <p class="text-sm text-muted-foreground">
+              {{ hasReviewContent ? 'Your latest review is saved below.' : 'No review or rating yet.' }}
+            </p>
+            <button
+              type="button"
+              aria-label="Save review"
+              class="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              @click="handleSaveReview"
+            >
+              Save Review
+            </button>
+          </div>
+
+          <div v-if="hasReviewContent" class="rounded-lg bg-muted/50 p-4 space-y-2">
+            <div v-if="book.rating" class="flex items-center gap-1 text-amber-400" aria-label="Saved rating">
+              <Star
+                v-for="rating in 5"
+                :key="`saved-${rating}`"
+                class="h-4 w-4"
+                :class="rating <= book.rating ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground'"
+              />
+            </div>
+            <p v-if="book.review" class="text-sm whitespace-pre-wrap">{{ book.review }}</p>
           </div>
         </div>
       </div>
