@@ -1,300 +1,392 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useBookStore } from '../stores/book'
-import type { Book, BookStatus } from '../types/book'
-import { ArrowLeft, BookOpen, Calendar, Trash2, CheckCircle, Star } from 'lucide-vue-next'
+import { ArrowLeft, BookOpen, Calendar, CheckCircle2, ChevronDown, Star, Trash2 } from 'lucide-vue-next'
 import { format } from 'date-fns'
+import { useBookStore } from '../stores/book'
+import type { BookStatus } from '../types/book'
 
 const route = useRoute()
 const router = useRouter()
 const bookStore = useBookStore()
 
-const book = ref<Book | undefined>(undefined)
+const bookId = computed(() => route.params.id as string)
+const book = computed(() => bookStore.getBookById(bookId.value))
+
 const showLogForm = ref(false)
+const logError = ref('')
+const reviewMessage = ref('')
+const reviewError = ref('')
+
 const newLog = ref({
-  startPage: 0,
-  endPage: 0,
-  content: ''
+  startPage: 1,
+  endPage: 1,
+  content: '',
 })
+
 const selectedRating = ref<number | undefined>(undefined)
 const reviewDraft = ref('')
 
-onMounted(() => {
-  const id = route.params.id as string
-  book.value = bookStore.getBookById(id)
-  if (book.value) {
-    newLog.value.startPage = book.value.currentPage
-    newLog.value.endPage = book.value.currentPage
-    selectedRating.value = book.value.rating
-    reviewDraft.value = book.value.review ?? ''
+watch(book, currentBook => {
+  if (!currentBook) return
+  newLog.value = {
+    startPage: Math.min(Math.max(currentBook.currentPage || 1, 1), currentBook.totalPages),
+    endPage: Math.min(Math.max(currentBook.currentPage || 1, 1), currentBook.totalPages),
+    content: '',
   }
-})
+  selectedRating.value = currentBook.rating
+  reviewDraft.value = currentBook.review ?? ''
+}, { immediate: true })
 
 const progressPercentage = computed(() => {
-  if (!book.value) return 0
+  if (!book.value || book.value.totalPages <= 0) return 0
   return Math.round((book.value.currentPage / book.value.totalPages) * 100)
 })
 
-const hasReviewContent = computed(() => {
-  return Boolean(book.value?.rating || book.value?.review)
-})
+const statusOptions: { value: BookStatus; label: string }[] = [
+  { value: 'TO_READ', label: 'To Read' },
+  { value: 'READING', label: 'Reading' },
+  { value: 'READ', label: 'Read' },
+  { value: 'STOPPED', label: 'Stopped' },
+]
 
-const handleUpdateStatus = (status: BookStatus) => {
+const formatDate = (value?: string) => {
+  return value ? format(new Date(value), 'MMM d, yyyy') : '-'
+}
+
+const handleStatusChange = (event: Event) => {
   if (!book.value) return
-  bookStore.updateBook(book.value.id, { status })
-  book.value.status = status
-  
-  if (status === 'READING' && !book.value.startDate) {
-    const now = new Date().toISOString()
-    bookStore.updateBook(book.value.id, { startDate: now })
-    book.value.startDate = now
-  } else if (status === 'READ' && !book.value.endDate) {
-    const now = new Date().toISOString()
-    bookStore.updateBook(book.value.id, { endDate: now, currentPage: book.value.totalPages })
-    book.value.endDate = now
-    book.value.currentPage = book.value.totalPages
+
+  const nextStatus = (event.target as HTMLSelectElement).value as BookStatus
+  const result = bookStore.updateBook(book.value.id, { status: nextStatus })
+
+  if (!result.ok) {
+    logError.value = result.message
   }
 }
 
 const handleAddLog = () => {
   if (!book.value) return
-  
-  const log = {
-    id: crypto.randomUUID(),
-    date: new Date().toISOString(),
-    startPage: Number(newLog.value.startPage),
-    endPage: Number(newLog.value.endPage),
-    content: newLog.value.content
+
+  logError.value = ''
+  const result = bookStore.addReadingLog(book.value.id, newLog.value)
+
+  if (!result.ok) {
+    logError.value = result.message
+    return
   }
-  
-  const updatedLogs = [...book.value.logs, log]
-  const newCurrentPage = Math.max(book.value.currentPage, log.endPage)
-  
-  bookStore.updateBook(book.value.id, { 
-    logs: updatedLogs,
-    currentPage: newCurrentPage
-  })
-  
-  book.value.logs = updatedLogs
-  book.value.currentPage = newCurrentPage
-  
+
   showLogForm.value = false
-  newLog.value = { startPage: newCurrentPage, endPage: newCurrentPage, content: '' }
+  newLog.value = {
+    startPage: Math.min(Math.max(book.value.currentPage || 1, 1), book.value.totalPages),
+    endPage: Math.min(Math.max(book.value.currentPage || 1, 1), book.value.totalPages),
+    content: '',
+  }
 }
 
 const handleDelete = () => {
-  if (!book.value || !confirm('Are you sure you want to delete this book?')) return
-  bookStore.deleteBook(book.value.id)
-  router.push('/books')
+  if (!book.value || !window.confirm('Are you sure you want to delete this book?')) return
+
+  const result = bookStore.deleteBook(book.value.id)
+  if (result.ok) {
+    router.push('/books')
+  }
 }
 
 const handleSaveReview = () => {
   if (!book.value) return
 
-  const review = reviewDraft.value.trim()
-  const updates = {
+  reviewError.value = ''
+  reviewMessage.value = ''
+
+  const result = bookStore.saveReview(book.value.id, {
     rating: selectedRating.value,
-    review: review || undefined
+    review: reviewDraft.value,
+  })
+
+  if (!result.ok) {
+    reviewError.value = result.message
+    return
   }
 
-  bookStore.updateBook(book.value.id, updates)
-  book.value = {
-    ...book.value,
-    ...updates
-  }
-  reviewDraft.value = book.value.review ?? ''
+  reviewMessage.value = '리뷰와 별점을 저장했습니다.'
 }
 </script>
 
 <template>
   <div v-if="book" class="space-y-8">
-    <!-- Header -->
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-      <div class="flex items-start gap-4">
-        <button @click="router.back()" class="mt-1 p-2 hover:bg-accent rounded-full transition-colors">
-          <ArrowLeft class="h-5 w-5" />
-        </button>
-        <div>
-          <h1 class="text-3xl font-bold tracking-tight mb-2">{{ book.title }}</h1>
-          <p class="text-xl text-muted-foreground">{{ book.author }}</p>
+    <section class="grid gap-6 rounded-[30px] border border-border/70 bg-card/90 p-6 shadow-sm lg:grid-cols-[220px_minmax(0,1fr)]">
+      <div class="overflow-hidden rounded-[24px] bg-muted">
+        <img
+          v-if="book.coverUrl"
+          :src="book.coverUrl"
+          :alt="`${book.title} cover`"
+          class="aspect-[3/4] h-full w-full object-cover"
+        />
+        <div v-else class="flex aspect-[3/4] flex-col items-center justify-center gap-4 bg-[linear-gradient(180deg,rgba(148,163,184,0.22),transparent)] text-muted-foreground">
+          <BookOpen class="h-12 w-12" />
+          <span class="text-xs font-semibold uppercase tracking-[0.28em]">No Cover</span>
         </div>
       </div>
-      <div class="flex items-center gap-2">
-        <select :value="book.status" @change="e => handleUpdateStatus((e.target as HTMLSelectElement).value as BookStatus)" class="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
-          <option value="TO_READ">To Read</option>
-          <option value="READING">Reading</option>
-          <option value="READ">Read</option>
-          <option value="STOPPED">Stopped</option>
-        </select>
-        <button @click="handleDelete" class="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 w-10 text-destructive">
-          <Trash2 class="h-4 w-4" />
-        </button>
-      </div>
-    </div>
 
-    <div class="grid gap-8 md:grid-cols-[2fr_1fr]">
-      <div class="space-y-8">
-        <!-- Progress -->
-        <div class="rounded-xl border bg-card text-card-foreground shadow-sm p-6">
-          <h3 class="font-semibold mb-4">Reading Progress</h3>
-          <div class="space-y-2">
-            <div class="flex items-center justify-between text-sm">
-              <span class="font-medium">{{ progressPercentage }}% Complete</span>
-              <span class="text-muted-foreground">{{ book.currentPage }} / {{ book.totalPages }} pages</span>
-            </div>
-            <div class="h-2 w-full overflow-hidden rounded-full bg-secondary">
-              <div class="h-full bg-primary transition-all" :style="{ width: `${progressPercentage}%` }"></div>
-            </div>
-          </div>
-          
-          <div class="mt-6 grid grid-cols-2 gap-4">
-            <div class="space-y-1">
-              <span class="text-xs text-muted-foreground">Started</span>
-              <div class="flex items-center gap-2 text-sm font-medium">
-                <Calendar class="h-4 w-4 text-muted-foreground" />
-                {{ book.startDate ? format(new Date(book.startDate), 'MMM d, yyyy') : '-' }}
-              </div>
-            </div>
-            <div class="space-y-1">
-              <span class="text-xs text-muted-foreground">Finished</span>
-              <div class="flex items-center gap-2 text-sm font-medium">
-                <CheckCircle class="h-4 w-4 text-muted-foreground" v-if="book.endDate" />
-                <span v-else>-</span>
-                {{ book.endDate ? format(new Date(book.endDate), 'MMM d, yyyy') : '' }}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Reading Logs -->
-        <div class="space-y-4">
-          <div class="flex items-center justify-between">
-            <h3 class="text-xl font-semibold">Reading Logs</h3>
-            <button @click="showLogForm = !showLogForm" class="text-sm text-primary hover:underline">
-              Add Log
-            </button>
-          </div>
-
-          <div v-if="showLogForm" class="rounded-lg border bg-card p-4 space-y-4">
-            <div class="grid grid-cols-2 gap-4">
-              <div class="space-y-2">
-                <label class="text-xs font-medium">Start Page</label>
-                <input v-model="newLog.startPage" type="number" class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50" />
-              </div>
-              <div class="space-y-2">
-                <label class="text-xs font-medium">End Page</label>
-                <input v-model="newLog.endPage" type="number" class="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50" />
-              </div>
-            </div>
-            <div class="space-y-2">
-              <label class="text-xs font-medium">Notes</label>
-              <textarea v-model="newLog.content" class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50" placeholder="What did you think?"></textarea>
-            </div>
-            <div class="flex justify-end gap-2">
-              <button @click="showLogForm = false" class="text-sm px-3 py-1 hover:bg-accent rounded-md">Cancel</button>
-              <button @click="handleAddLog" class="text-sm px-3 py-1 bg-primary text-primary-foreground rounded-md hover:bg-primary/90">Save Log</button>
-            </div>
-          </div>
-
-          <div class="space-y-4">
-            <div v-for="log in book.logs.slice().reverse()" :key="log.id" class="rounded-lg border bg-card p-4">
-              <div class="flex items-center justify-between mb-2">
-                <span class="text-sm text-muted-foreground">{{ format(new Date(log.date), 'MMM d, yyyy') }}</span>
-                <span class="text-xs font-medium bg-secondary px-2 py-1 rounded-full">p. {{ log.startPage }} - {{ log.endPage }}</span>
-              </div>
-              <p class="text-sm whitespace-pre-wrap">{{ log.content }}</p>
-            </div>
-            <div v-if="book.logs.length === 0" class="text-center py-8 text-muted-foreground text-sm">
-              No reading logs yet.
-            </div>
-          </div>
-        </div>
-
-        <div class="rounded-xl border bg-card text-card-foreground shadow-sm p-6 space-y-4">
-          <div class="flex items-center justify-between">
-            <h3 class="text-xl font-semibold">Review & Rating</h3>
-            <span v-if="book.rating" class="text-sm text-muted-foreground">{{ book.rating }}/5</span>
-          </div>
-
-          <div class="space-y-2">
-            <p class="text-sm font-medium">Rating</p>
-            <div class="flex items-center gap-2">
-              <button
-                v-for="rating in 5"
-                :key="rating"
-                type="button"
-                :aria-label="`Rate ${rating} stars`"
-                class="rounded-md p-1 transition-colors hover:bg-accent"
-                @click="selectedRating = rating"
-              >
-                <Star
-                  class="h-6 w-6"
-                  :class="rating <= (selectedRating ?? 0) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground'"
-                />
-              </button>
-              <button
-                v-if="selectedRating"
-                type="button"
-                aria-label="Clear rating"
-                class="text-sm text-muted-foreground hover:text-foreground"
-                @click="selectedRating = undefined"
-              >
-                Clear
-              </button>
-            </div>
-          </div>
-
-          <div class="space-y-2">
-            <label for="review" class="text-sm font-medium">Review</label>
-            <textarea
-              id="review"
-              v-model="reviewDraft"
-              class="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-              placeholder="Write your thoughts about this book."
-            />
-          </div>
-
-          <div class="flex items-center justify-between gap-4">
-            <p class="text-sm text-muted-foreground">
-              {{ hasReviewContent ? 'Your latest review is saved below.' : 'No review or rating yet.' }}
-            </p>
+      <div class="space-y-5">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div class="space-y-3">
             <button
               type="button"
-              aria-label="Save review"
-              class="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-              @click="handleSaveReview"
+              class="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition hover:text-foreground"
+              @click="router.back()"
             >
-              Save Review
+              <ArrowLeft class="h-4 w-4" />
+              <span>Back</span>
+            </button>
+            <div>
+              <h1 class="text-3xl font-semibold tracking-tight">{{ book.title }}</h1>
+              <p class="mt-1 text-base text-muted-foreground">{{ book.author }}</p>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-3">
+            <label class="relative">
+              <select
+                :value="book.status"
+                class="h-11 appearance-none rounded-2xl border border-input bg-background px-4 pr-10 text-sm outline-none transition focus:border-primary"
+                @change="handleStatusChange"
+              >
+                <option v-for="option in statusOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+              </select>
+              <ChevronDown class="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            </label>
+
+            <button
+              type="button"
+              aria-label="Delete book"
+              class="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border text-destructive transition hover:bg-destructive/10"
+              @click="handleDelete"
+            >
+              <Trash2 class="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        <div class="grid gap-4 sm:grid-cols-3">
+          <div class="rounded-2xl bg-muted/70 p-4">
+            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Progress</p>
+            <p class="mt-2 text-2xl font-semibold">{{ progressPercentage }}%</p>
+            <p class="mt-1 text-sm text-muted-foreground">{{ book.currentPage }} / {{ book.totalPages }} pages</p>
+          </div>
+          <div class="rounded-2xl bg-muted/70 p-4">
+            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Started</p>
+            <div class="mt-2 flex items-center gap-2 text-sm font-medium">
+              <Calendar class="h-4 w-4 text-muted-foreground" />
+              <span>{{ formatDate(book.startDate) }}</span>
+            </div>
+          </div>
+          <div class="rounded-2xl bg-muted/70 p-4">
+            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Finished</p>
+            <div class="mt-2 flex items-center gap-2 text-sm font-medium">
+              <CheckCircle2 class="h-4 w-4 text-muted-foreground" />
+              <span>{{ formatDate(book.endDate) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <div class="flex items-center justify-between text-sm">
+            <span class="font-medium">Reading Progress</span>
+            <span class="text-muted-foreground">{{ progressPercentage }}% Complete</span>
+          </div>
+          <div class="h-3 rounded-full bg-muted">
+            <div class="h-full rounded-full bg-primary transition-all" :style="{ width: `${progressPercentage}%` }" />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
+      <div class="space-y-8">
+        <section class="rounded-[28px] border border-border/70 bg-card/90 p-6 shadow-sm">
+          <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 class="text-xl font-semibold">Reading Logs</h2>
+              <p class="text-sm text-muted-foreground">페이지 범위와 간단한 메모를 남겨 독서 흐름을 이어가세요.</p>
+            </div>
+            <button
+              type="button"
+              class="inline-flex h-11 items-center justify-center rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
+              @click="showLogForm = !showLogForm"
+            >
+              {{ showLogForm ? 'Close' : 'Add Log' }}
             </button>
           </div>
 
-          <div v-if="hasReviewContent" class="rounded-lg bg-muted/50 p-4 space-y-2">
-            <div v-if="book.rating" class="flex items-center gap-1 text-amber-400" aria-label="Saved rating">
-              <Star
-                v-for="rating in 5"
-                :key="`saved-${rating}`"
-                class="h-4 w-4"
-                :class="rating <= book.rating ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground'"
-              />
+          <div v-if="showLogForm" class="mt-6 rounded-[24px] border border-border bg-background/60 p-4">
+            <div class="grid gap-4 sm:grid-cols-2">
+              <label class="space-y-2 text-sm font-medium">
+                <span>Start Page</span>
+                <input
+                  v-model.number="newLog.startPage"
+                  type="number"
+                  min="1"
+                  class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
+                />
+              </label>
+
+              <label class="space-y-2 text-sm font-medium">
+                <span>End Page</span>
+                <input
+                  v-model.number="newLog.endPage"
+                  type="number"
+                  min="1"
+                  class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
+                />
+              </label>
             </div>
-            <p v-if="book.review" class="text-sm whitespace-pre-wrap">{{ book.review }}</p>
+
+            <label class="mt-4 block space-y-2 text-sm font-medium">
+              <span>Notes</span>
+              <textarea
+                v-model="newLog.content"
+                class="min-h-[120px] w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm outline-none transition focus:border-primary"
+                placeholder="What stood out today?"
+              />
+            </label>
+
+            <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p v-if="logError" class="text-sm font-medium text-destructive">{{ logError }}</p>
+              <div class="flex gap-2 sm:ml-auto">
+                <button
+                  type="button"
+                  class="inline-flex h-11 items-center justify-center rounded-2xl border border-border px-4 text-sm font-medium transition hover:bg-muted"
+                  @click="showLogForm = false"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  class="inline-flex h-11 items-center justify-center rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
+                  @click="handleAddLog"
+                >
+                  Save Log
+                </button>
+              </div>
+            </div>
           </div>
-        </div>
+
+          <div v-if="book.logs.length === 0" class="mt-6 rounded-[24px] border border-dashed border-border bg-muted/30 p-8 text-center text-sm text-muted-foreground">
+            No reading logs yet.
+          </div>
+
+          <div v-else class="mt-6 space-y-4">
+            <article
+              v-for="log in book.logs.slice().reverse()"
+              :key="log.id"
+              class="rounded-[24px] border border-border/70 bg-background/60 p-5"
+            >
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <p class="text-sm font-medium">{{ format(new Date(log.date), 'MMM d, yyyy') }}</p>
+                <span class="rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
+                  p. {{ log.startPage }} - {{ log.endPage }}
+                </span>
+              </div>
+              <p v-if="log.content" class="mt-3 whitespace-pre-wrap text-sm leading-6 text-foreground/90">{{ log.content }}</p>
+              <p v-else class="mt-3 text-sm text-muted-foreground">메모 없이 페이지 범위만 기록했습니다.</p>
+            </article>
+          </div>
+        </section>
       </div>
 
-      <!-- Sidebar Info -->
-      <div class="space-y-6">
-        <div class="rounded-xl border bg-card text-card-foreground shadow-sm p-6">
-          <div class="aspect-[2/3] w-full bg-muted rounded-md flex items-center justify-center mb-4">
-            <BookOpen class="h-16 w-16 text-muted-foreground/50" />
+      <section class="rounded-[28px] border border-border/70 bg-card/90 p-6 shadow-sm">
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-semibold">Review & Rating</h2>
+            <p class="text-sm text-muted-foreground">완독 후의 감상이나 재독 포인트를 남겨 두세요.</p>
           </div>
-          <!-- Placeholder for cover image upload -->
+          <span v-if="book.rating" class="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+            {{ book.rating }}/5
+          </span>
         </div>
+
+        <div class="mt-6 space-y-3">
+          <p class="text-sm font-medium">Rating</p>
+          <div class="flex items-center gap-2">
+            <button
+              v-for="rating in 5"
+              :key="rating"
+              type="button"
+              :aria-label="`Rate ${rating} stars`"
+              class="rounded-xl p-1.5 transition hover:bg-muted"
+              @click="selectedRating = rating"
+            >
+              <Star
+                class="h-7 w-7"
+                :class="rating <= (selectedRating ?? 0) ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground'"
+              />
+            </button>
+            <button
+              v-if="selectedRating"
+              type="button"
+              class="text-sm font-medium text-muted-foreground transition hover:text-foreground"
+              @click="selectedRating = undefined"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+
+        <label class="mt-6 block space-y-2 text-sm font-medium">
+          <span>Review</span>
+          <textarea
+            id="review"
+            v-model="reviewDraft"
+            class="min-h-[180px] w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm outline-none transition focus:border-primary"
+            placeholder="Write your thoughts about this book."
+          />
+        </label>
+
+        <div class="mt-5 flex flex-col gap-3">
+          <p v-if="reviewError" class="text-sm font-medium text-destructive">{{ reviewError }}</p>
+          <p v-else-if="reviewMessage" class="text-sm font-medium text-emerald-600 dark:text-emerald-300">{{ reviewMessage }}</p>
+          <button
+            type="button"
+            aria-label="Save review"
+            class="inline-flex h-11 items-center justify-center rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
+            @click="handleSaveReview"
+          >
+            Save Review
+          </button>
+        </div>
+
+        <div v-if="book.rating || book.review" class="mt-6 rounded-[24px] bg-muted/50 p-5">
+          <div v-if="book.rating" class="flex items-center gap-1 text-amber-400" aria-label="Saved rating">
+            <Star
+              v-for="rating in 5"
+              :key="`saved-${rating}`"
+              class="h-4 w-4"
+              :class="rating <= book.rating ? 'fill-current' : 'text-muted-foreground'"
+            />
+          </div>
+          <p v-if="book.review" class="mt-3 whitespace-pre-wrap text-sm leading-6">{{ book.review }}</p>
+        </div>
+      </section>
+    </section>
+  </div>
+
+  <section v-else class="rounded-[30px] border border-dashed border-border bg-card/80 p-12 text-center">
+    <div class="mx-auto flex max-w-md flex-col items-center gap-4">
+      <div class="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+        <BookOpen class="h-7 w-7 text-muted-foreground" />
       </div>
+      <h1 class="text-2xl font-semibold">Book not found.</h1>
+      <p class="text-sm leading-6 text-muted-foreground">
+        요청한 책이 존재하지 않거나 이미 삭제되었습니다. 서재 목록으로 돌아가 다른 책을 선택해 주세요.
+      </p>
+      <RouterLink
+        to="/books"
+        class="inline-flex h-11 items-center justify-center rounded-2xl bg-primary px-5 text-sm font-semibold text-primary-foreground"
+      >
+        Go to Library
+      </RouterLink>
     </div>
-  </div>
-  <div v-else class="flex items-center justify-center h-[50vh]">
-    <p class="text-muted-foreground">Book not found.</p>
-  </div>
+  </section>
 </template>
