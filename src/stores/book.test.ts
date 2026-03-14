@@ -1,292 +1,197 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { nextTick } from 'vue'
+import { beforeEach, describe, expect, it } from 'vitest'
 import { useBookStore } from './book'
-import { setupTestPinia, setupLocalStorageMock, clearLocalStorage } from '../test-utils/setup'
-import { createMockBook, mockBooks } from '../test-utils/mock-data'
+import { setupLocalStorageMock, setupTestPinia, clearLocalStorage } from '../test-utils/setup'
+
+const getFirstBook = (store: ReturnType<typeof useBookStore>) => {
+  expect(store.books[0]).toBeDefined()
+  return store.books[0]!
+}
 
 describe('useBookStore', () => {
   beforeEach(() => {
     setupLocalStorageMock()
     clearLocalStorage()
     setupTestPinia()
+    document.documentElement.className = ''
   })
 
-  describe('초기화', () => {
-    it('빈 배열로 시작해야 함', () => {
-      const store = useBookStore()
-      expect(store.books).toEqual([])
-    })
+  it('rejects invalid book input', () => {
+    const store = useBookStore()
 
-    it('localStorage에서 데이터를 로드해야 함', () => {
-      const testBooks = [mockBooks[0], mockBooks[1]]
-      localStorage.setItem('booklog-books', JSON.stringify(testBooks))
+    expect(store.addBook({
+      title: '   ',
+      author: 'Author',
+      totalPages: 100,
+      status: 'TO_READ',
+    })).toEqual({ ok: false, message: '책 제목을 입력해 주세요.' })
 
-      setupTestPinia()
-      const store = useBookStore()
-
-      expect(store.books).toEqual(testBooks)
-    })
-
-    it('localStorage에 잘못된 데이터가 있어도 에러가 발생하지 않아야 함', () => {
-      localStorage.setItem('booklog-books', 'invalid json')
-
-      expect(() => {
-        setupTestPinia()
-        useBookStore()
-      }).not.toThrow()
-    })
+    expect(store.books).toHaveLength(0)
   })
 
-  describe('addBook', () => {
-    it('새 책을 추가해야 함', () => {
-      const store = useBookStore()
-      const newBook = createMockBook({ title: '새로운 책' })
+  it('adds a normalized book and persists it', () => {
+    const store = useBookStore()
 
-      store.addBook(newBook)
-
-      expect(store.books).toHaveLength(1)
-      expect(store.books[0]).toEqual(newBook)
+    const result = store.addBook({
+      title: '  Clean Code  ',
+      author: '  Robert C. Martin ',
+      totalPages: 464,
+      status: 'TO_READ',
+      coverUrl: ' https://example.com/cover.jpg ',
     })
 
-    it('여러 책을 추가할 수 있어야 함', () => {
-      const store = useBookStore()
-      const book1 = createMockBook({ id: 'book-1', title: '책 1' })
-      const book2 = createMockBook({ id: 'book-2', title: '책 2' })
-
-      store.addBook(book1)
-      store.addBook(book2)
-
-      expect(store.books).toHaveLength(2)
-      expect(store.books[0]).toEqual(book1)
-      expect(store.books[1]).toEqual(book2)
-    })
-
-    it('책 추가 시 localStorage에 저장되어야 함', async () => {
-      const store = useBookStore()
-      const newBook = createMockBook({ title: '새로운 책' })
-
-      store.addBook(newBook)
-
-      // watch가 실행될 시간을 기다림
-      await new Promise(resolve => setTimeout(resolve, 0))
-
-      expect(localStorage.setItem).toHaveBeenCalledWith(
-        'booklog-books',
-        JSON.stringify([newBook])
-      )
-    })
+    expect(result).toEqual({ ok: true })
+    expect(getFirstBook(store).title).toBe('Clean Code')
+    expect(getFirstBook(store).author).toBe('Robert C. Martin')
+    expect(getFirstBook(store).coverUrl).toBe('https://example.com/cover.jpg')
+    expect(localStorage.setItem).toHaveBeenCalled()
   })
 
-  describe('getBookById', () => {
-    it('존재하는 책을 ID로 찾아야 함', () => {
-      const store = useBookStore()
-      const book = createMockBook({ id: 'test-id', title: '테스트 책' })
-      store.addBook(book)
-
-      const found = store.getBookById('test-id')
-
-      expect(found).toEqual(book)
+  it('applies status transitions when moving to reading and read', () => {
+    const store = useBookStore()
+    store.addBook({
+      title: 'Book',
+      author: 'Author',
+      totalPages: 100,
+      status: 'TO_READ',
     })
 
-    it('존재하지 않는 책은 undefined를 반환해야 함', () => {
-      const store = useBookStore()
+    const bookId = getFirstBook(store).id
 
-      const found = store.getBookById('non-existent-id')
+    expect(store.updateBook(bookId, { status: 'READING' })).toEqual({ ok: true })
+    expect(getFirstBook(store).startDate).toBeTruthy()
 
-      expect(found).toBeUndefined()
-    })
-
-    it('여러 책 중에서 올바른 책을 찾아야 함', () => {
-      const store = useBookStore()
-      mockBooks.forEach(book => store.addBook(book))
-
-      const found = store.getBookById('book-2')
-
-      expect(found?.title).toBe('리팩터링')
-    })
+    expect(store.updateBook(bookId, { status: 'READ' })).toEqual({ ok: true })
+    expect(getFirstBook(store).endDate).toBeTruthy()
+    expect(getFirstBook(store).currentPage).toBe(100)
   })
 
-  describe('updateBook', () => {
-    it('책 정보를 업데이트해야 함', () => {
-      const store = useBookStore()
-      const book = createMockBook({ id: 'test-id', title: '원래 제목' })
-      store.addBook(book)
-
-      store.updateBook('test-id', { title: '수정된 제목' })
-
-      const updated = store.getBookById('test-id')
-      expect(updated?.title).toBe('수정된 제목')
+  it('rejects out-of-range current page updates', () => {
+    const store = useBookStore()
+    store.addBook({
+      title: 'Book',
+      author: 'Author',
+      totalPages: 100,
+      status: 'TO_READ',
     })
 
-    it('부분 업데이트가 가능해야 함', () => {
-      const store = useBookStore()
-      const book = createMockBook({
-        id: 'test-id',
-        title: '테스트 책',
-        currentPage: 0,
-        status: 'TO_READ',
-      })
-      store.addBook(book)
+    const result = store.updateBook(getFirstBook(store).id, { currentPage: 120 })
 
-      store.updateBook('test-id', { currentPage: 100, status: 'READING' })
-
-      const updated = store.getBookById('test-id')
-      expect(updated?.title).toBe('테스트 책') // 변경되지 않음
-      expect(updated?.currentPage).toBe(100) // 변경됨
-      expect(updated?.status).toBe('READING') // 변경됨
-    })
-
-    it('존재하지 않는 책을 업데이트하려고 하면 아무 일도 일어나지 않아야 함', () => {
-      const store = useBookStore()
-      const book = createMockBook({ id: 'test-id' })
-      store.addBook(book)
-
-      store.updateBook('non-existent-id', { title: '수정된 제목' })
-
-      expect(store.books).toHaveLength(1)
-      expect(store.books[0]).toEqual(book)
-    })
-
-    it('업데이트 시 localStorage에 저장되어야 함', async () => {
-      const store = useBookStore()
-      const book = createMockBook({ id: 'test-id', title: '원래 제목' })
-      store.addBook(book)
-
-      vi.clearAllMocks() // 이전 호출 기록 제거
-
-      store.updateBook('test-id', { title: '수정된 제목' })
-
-      await new Promise(resolve => setTimeout(resolve, 0))
-
-      expect(localStorage.setItem).toHaveBeenCalled()
-    })
-
-    it('rating과 review를 저장해야 함', () => {
-      const store = useBookStore()
-      const book = createMockBook({ id: 'test-id' })
-      store.addBook(book)
-
-      store.updateBook('test-id', { rating: 4, review: '다시 읽고 싶은 책' })
-
-      const updated = store.getBookById('test-id')
-      expect(updated?.rating).toBe(4)
-      expect(updated?.review).toBe('다시 읽고 싶은 책')
-    })
-
-    it('빈 review는 제거해야 함', () => {
-      const store = useBookStore()
-      const book = createMockBook({ id: 'test-id', review: '기존 리뷰' })
-      store.addBook(book)
-
-      store.updateBook('test-id', { review: '   ' })
-
-      const updated = store.getBookById('test-id')
-      expect(updated?.review).toBeUndefined()
-    })
-
-    it('범위를 벗어난 rating은 제거해야 함', () => {
-      const store = useBookStore()
-      const book = createMockBook({ id: 'test-id', rating: 5 })
-      store.addBook(book)
-
-      store.updateBook('test-id', { rating: 9 })
-
-      const updated = store.getBookById('test-id')
-      expect(updated?.rating).toBeUndefined()
-    })
+    expect(result).toEqual({ ok: false, message: '현재 페이지는 0에서 전체 페이지 수 사이여야 합니다.' })
   })
 
-  describe('deleteBook', () => {
-    it('책을 삭제해야 함', () => {
-      const store = useBookStore()
-      const book = createMockBook({ id: 'test-id' })
-      store.addBook(book)
-
-      store.deleteBook('test-id')
-
-      expect(store.books).toHaveLength(0)
-      expect(store.getBookById('test-id')).toBeUndefined()
+  it('validates reading log boundaries and updates progress', () => {
+    const store = useBookStore()
+    store.addBook({
+      title: 'Book',
+      author: 'Author',
+      totalPages: 300,
+      status: 'TO_READ',
     })
 
-    it('여러 책 중 하나만 삭제해야 함', () => {
-      const store = useBookStore()
-      mockBooks.forEach(book => store.addBook(book))
-      const initialLength = store.books.length
+    const bookId = getFirstBook(store).id
 
-      store.deleteBook('book-2')
+    expect(store.addReadingLog(bookId, {
+      startPage: 20,
+      endPage: 10,
+      content: 'invalid',
+    })).toEqual({ ok: false, message: '종료 페이지는 시작 페이지보다 같거나 커야 합니다.' })
 
-      expect(store.books).toHaveLength(initialLength - 1)
-      expect(store.getBookById('book-2')).toBeUndefined()
-      expect(store.getBookById('book-1')).toBeDefined()
-      expect(store.getBookById('book-3')).toBeDefined()
-    })
+    expect(store.addReadingLog(bookId, {
+      startPage: 1,
+      endPage: 25,
+      content: '  first session  ',
+    })).toEqual({ ok: true })
 
-    it('존재하지 않는 책을 삭제하려고 하면 아무 일도 일어나지 않아야 함', () => {
-      const store = useBookStore()
-      const book = createMockBook({ id: 'test-id' })
-      store.addBook(book)
-
-      store.deleteBook('non-existent-id')
-
-      expect(store.books).toHaveLength(1)
-      expect(store.books[0]).toEqual(book)
-    })
-
-    it('삭제 시 localStorage에 저장되어야 함', async () => {
-      const store = useBookStore()
-      const book = createMockBook({ id: 'test-id' })
-      store.addBook(book)
-
-      vi.clearAllMocks()
-
-      store.deleteBook('test-id')
-
-      await new Promise(resolve => setTimeout(resolve, 0))
-
-      expect(localStorage.setItem).toHaveBeenCalled()
-    })
+    expect(getFirstBook(store).logs).toHaveLength(1)
+    expect(getFirstBook(store).logs[0]).toBeDefined()
+    expect(getFirstBook(store).logs[0]!.content).toBe('first session')
+    expect(getFirstBook(store).currentPage).toBe(25)
+    expect(getFirstBook(store).status).toBe('READING')
   })
 
-  describe('localStorage 동기화', () => {
-    it('books 배열이 변경되면 localStorage에 자동 저장되어야 함', async () => {
-      const store = useBookStore()
-      const book = createMockBook()
-
-      store.addBook(book)
-
-      await new Promise(resolve => setTimeout(resolve, 0))
-
-      expect(localStorage.setItem).toHaveBeenCalledWith(
-        'booklog-books',
-        expect.any(String)
-      )
-
-      const savedData = JSON.parse(
-        (localStorage.setItem as any).mock.calls[0][1]
-      )
-      expect(savedData).toEqual([book])
+  it('saves reviews with trim and rating validation', () => {
+    const store = useBookStore()
+    store.addBook({
+      title: 'Book',
+      author: 'Author',
+      totalPages: 100,
+      status: 'TO_READ',
     })
 
-    it('deep watch로 중첩된 변경사항도 감지해야 함', async () => {
-      const store = useBookStore()
-      const book = createMockBook({ id: 'test-id', logs: [] })
-      store.addBook(book)
+    const bookId = getFirstBook(store).id
 
-      vi.clearAllMocks()
-
-      // 중첩된 배열 수정
-      const bookRef = store.getBookById('test-id')
-      if (bookRef) {
-        bookRef.logs.push({
-          id: 'log-1',
-          date: new Date().toISOString(),
-          startPage: 1,
-          endPage: 50,
-        })
-      }
-
-      await new Promise(resolve => setTimeout(resolve, 0))
-
-      expect(localStorage.setItem).toHaveBeenCalled()
+    expect(store.saveReview(bookId, { rating: 7, review: 'x' })).toEqual({
+      ok: false,
+      message: '별점은 1점에서 5점 사이여야 합니다.',
     })
+
+    expect(store.saveReview(bookId, {
+      rating: 4,
+      review: '  worth rereading  ',
+    })).toEqual({ ok: true })
+
+    expect(getFirstBook(store).rating).toBe(4)
+    expect(getFirstBook(store).review).toBe('worth rereading')
+  })
+
+  it('normalizes stored books when loading from localStorage', () => {
+    localStorage.setItem('booklog-books', JSON.stringify([
+      {
+        id: 'legacy-1',
+        title: ' Legacy Book ',
+        author: ' Author ',
+        totalPages: 0,
+        currentPage: 999,
+        status: 'READING',
+        logs: [{ startPage: 1, endPage: 5 }],
+      },
+      {
+        id: 'legacy-2',
+        title: ' ',
+        author: 'Ignored',
+      },
+    ]))
+
+    setupTestPinia()
+    const store = useBookStore()
+
+    expect(store.books).toHaveLength(1)
+    expect(getFirstBook(store).title).toBe('Legacy Book')
+    expect(getFirstBook(store).totalPages).toBe(1)
+    expect(getFirstBook(store).currentPage).toBe(1)
+  })
+
+  it('persists theme and toggles the dark class', async () => {
+    const store = useBookStore()
+
+    store.setTheme('dark')
+    await nextTick()
+
+    expect(store.theme).toBe('dark')
+    expect(localStorage.setItem).toHaveBeenLastCalledWith('booklog-theme', 'dark')
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
+  })
+
+  it('deletes books safely', () => {
+    const store = useBookStore()
+    store.addBook({
+      title: 'Book',
+      author: 'Author',
+      totalPages: 100,
+      status: 'TO_READ',
+    })
+
+    expect(store.deleteBook(getFirstBook(store).id)).toEqual({ ok: true })
+    expect(store.books).toHaveLength(0)
+  })
+
+  it('falls back to light theme when stored value is invalid', () => {
+    localStorage.setItem('booklog-theme', 'sepia')
+
+    setupTestPinia()
+    const store = useBookStore()
+
+    expect(store.theme).toBe('light')
   })
 })
