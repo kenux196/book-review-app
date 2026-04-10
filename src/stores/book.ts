@@ -75,6 +75,10 @@ const normalizeBookRecord = (value: unknown): Book | undefined => {
         .filter((log): log is ReadingLog => Boolean(log))
     : []
 
+  const tags = Array.isArray(raw.tags)
+    ? raw.tags.filter((t): t is string => typeof t === 'string').map(t => t.trim()).filter(t => t.length > 0)
+    : []
+
   return {
     id: typeof raw.id === 'string' && raw.id ? raw.id : crypto.randomUUID(),
     title,
@@ -87,6 +91,7 @@ const normalizeBookRecord = (value: unknown): Book | undefined => {
     endDate: typeof raw.endDate === 'string' && raw.endDate ? raw.endDate : undefined,
     rating: normalizeRating(raw.rating),
     review: toTrimmedText(raw.review),
+    tags,
     logs,
     createdAt: typeof raw.createdAt === 'string' && raw.createdAt ? raw.createdAt : new Date().toISOString(),
   }
@@ -180,6 +185,10 @@ export const useBookStore = defineStore('book', () => {
     const status = STATUS_ORDER.includes(draft.status) ? draft.status : 'TO_READ'
     const initialCurrentPage = clamp(Math.floor(Number(draft.currentPage ?? 0)) || 0, 0, totalPages)
 
+    const tags = Array.isArray(draft.tags)
+      ? draft.tags.map(t => t.trim()).filter(t => t.length > 0)
+      : []
+
     let nextBook: Book = {
       id: crypto.randomUUID(),
       title,
@@ -188,6 +197,7 @@ export const useBookStore = defineStore('book', () => {
       totalPages,
       currentPage: initialCurrentPage,
       status,
+      tags,
       logs: [],
       createdAt: new Date().toISOString(),
     }
@@ -225,6 +235,10 @@ export const useBookStore = defineStore('book', () => {
     const nextStatus = 'status' in updates && updates.status ? updates.status : target.status
     const index = books.value.findIndex(book => book.id === id)
 
+    const tags = 'tags' in updates && Array.isArray(updates.tags)
+      ? updates.tags.map(t => t.trim()).filter(t => t.length > 0)
+      : target.tags
+
     let nextBook: Book = {
       ...target,
       title,
@@ -232,6 +246,7 @@ export const useBookStore = defineStore('book', () => {
       coverUrl: 'coverUrl' in updates ? toTrimmedText(updates.coverUrl) : target.coverUrl,
       totalPages,
       currentPage,
+      tags,
       status: STATUS_ORDER.includes(nextStatus) ? nextStatus : target.status,
     }
 
@@ -303,6 +318,17 @@ export const useBookStore = defineStore('book', () => {
     return { ok: true }
   }
 
+  const updateTags = (bookId: string, tags: string[]): StoreActionResult => {
+    const target = getBookById(bookId)
+    if (!target) return { ok: false, message: '책을 찾을 수 없습니다.' }
+
+    const normalized = [...new Set(tags.map(t => t.trim()).filter(t => t.length > 0))]
+    const index = books.value.findIndex(book => book.id === bookId)
+    books.value[index] = { ...target, tags: normalized }
+
+    return { ok: true }
+  }
+
   const deleteBook = (id: string): StoreActionResult => {
     const nextBooks = books.value.filter(book => book.id !== id)
     if (nextBooks.length === books.value.length) {
@@ -325,6 +351,7 @@ export const useBookStore = defineStore('book', () => {
     getBookById,
     addBook,
     updateBook,
+    updateTags,
     addReadingLog,
     saveReview,
     deleteBook,

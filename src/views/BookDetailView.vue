@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, BookOpen, Calendar, CheckCircle2, ChevronDown, Star, Trash2 } from 'lucide-vue-next'
+import { ArrowLeft, BookOpen, Calendar, CheckCircle2, ChevronDown, Star, Trash2, X } from 'lucide-vue-next'
 import { format } from 'date-fns'
 import { useBookStore } from '../stores/book'
 import type { BookStatus } from '../types/book'
@@ -91,6 +91,24 @@ const handleDelete = () => {
   if (result.ok) {
     router.push('/books')
   }
+}
+
+const tagInput = ref('')
+
+const handleAddTag = () => {
+  if (!book.value) return
+  const tag = tagInput.value.trim()
+  if (!tag || book.value.tags.includes(tag)) {
+    tagInput.value = ''
+    return
+  }
+  bookStore.updateTags(book.value.id, [...book.value.tags, tag])
+  tagInput.value = ''
+}
+
+const handleRemoveTag = (tag: string) => {
+  if (!book.value) return
+  bookStore.updateTags(book.value.id, book.value.tags.filter(t => t !== tag))
 }
 
 const handleSaveReview = () => {
@@ -198,6 +216,38 @@ const handleSaveReview = () => {
           </div>
           <div class="h-3 rounded-full bg-muted">
             <div class="h-full rounded-full bg-primary transition-all" :style="{ width: `${progressPercentage}%` }" />
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <p class="text-sm font-medium">Tags</p>
+          <div class="flex flex-wrap items-center gap-2">
+            <span
+              v-for="tag in book.tags"
+              :key="tag"
+              class="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary"
+            >
+              {{ tag }}
+              <button type="button" :aria-label="`Remove tag ${tag}`" class="transition hover:text-primary/60" @click="handleRemoveTag(tag)">
+                <X class="h-3 w-3" />
+              </button>
+            </span>
+            <span v-if="book.tags.length === 0" class="text-xs text-muted-foreground">태그 없음</span>
+          </div>
+          <div class="flex gap-2">
+            <input
+              v-model="tagInput"
+              placeholder="태그 입력 후 Enter"
+              class="h-9 flex-1 rounded-2xl border border-input bg-background px-3 text-sm outline-none transition focus:border-primary"
+              @keydown.enter.prevent="handleAddTag"
+            />
+            <button
+              type="button"
+              class="inline-flex h-9 items-center justify-center rounded-2xl bg-primary/10 px-3 text-xs font-semibold text-primary transition hover:bg-primary/20"
+              @click="handleAddTag"
+            >
+              Add
+            </button>
           </div>
         </div>
       </div>
