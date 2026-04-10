@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { seedBooklogDb } from './helpers/seedBooklogDb'
 
 const seedBooks = [
   {
@@ -48,14 +49,7 @@ const seedBooks = [
 ]
 
 test.beforeEach(async ({ page }) => {
-  await page.addInitScript((books) => {
-    if (!window.localStorage.getItem('booklog-books')) {
-      window.localStorage.setItem('booklog-books', JSON.stringify(books))
-    }
-    if (!window.localStorage.getItem('booklog-theme')) {
-      window.localStorage.setItem('booklog-theme', 'light')
-    }
-  }, seedBooks)
+  await seedBooklogDb(page, { books: seedBooks, theme: 'light' })
 })
 
 // ── 기존 시나리오 ──────────────────────────────────────────────
@@ -104,6 +98,8 @@ test('saves review, adds reading log, and persists dark mode', async ({ page }) 
   await page.getByRole('button', { name: '라이트 모드 켜짐' }).click()
   await expect(page.locator('html')).toHaveClass(/dark/)
 
+  // Wait for async IndexedDB save to complete before reload
+  await page.waitForTimeout(300)
   await page.reload()
   await expect(page.locator('html')).toHaveClass(/dark/)
 })
@@ -132,7 +128,6 @@ test('adds and removes a tag on a book', async ({ page }) => {
 })
 
 test('tags are searchable in the library', async ({ page }) => {
-  // 책에 태그 추가 후 해당 태그로 검색
   await page.goto('/books/book-1')
   await page.getByPlaceholder('태그 입력 후 Enter').fill('개발')
   await page.getByPlaceholder('태그 입력 후 Enter').press('Enter')
@@ -173,6 +168,8 @@ test('persists new book after page reload', async ({ page }) => {
   await page.getByRole('button', { name: 'Save Book' }).click()
   await expect(page.getByText('The Pragmatic Programmer')).toBeVisible()
 
+  // Wait for async IndexedDB save to complete before reload
+  await page.waitForTimeout(300)
   await page.reload()
   await expect(page.getByText('The Pragmatic Programmer')).toBeVisible()
 })

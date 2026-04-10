@@ -10,33 +10,15 @@ import type {
   StoreActionResult,
   ThemePreference,
 } from '../types/book'
-
-const BOOKS_STORAGE_KEY = 'booklog-books'
-const THEME_STORAGE_KEY = 'booklog-theme'
+import {
+  toTrimmedText,
+  normalizeRating,
+  normalizePositiveInt,
+  clamp,
+} from './bookPersistenceUtils'
+import { getBookRepository } from './bookRepositoryProvider'
 
 const STATUS_ORDER: BookStatus[] = ['TO_READ', 'READING', 'READ', 'STOPPED']
-
-const toTrimmedText = (value: unknown) => {
-  if (typeof value !== 'string') return undefined
-  const trimmed = value.trim()
-  return trimmed ? trimmed : undefined
-}
-
-const normalizeRating = (value: unknown) => {
-  return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 5
-    ? value
-    : undefined
-}
-
-const normalizePositiveInt = (value: unknown, fallback: number) => {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
-  const normalized = Math.floor(value)
-  return normalized > 0 ? normalized : fallback
-}
-
-const clamp = (value: number, min: number, max: number) => {
-  return Math.min(Math.max(value, min), max)
-}
 
 const normalizeLog = (value: unknown, totalPages: number): ReadingLog | undefined => {
   if (!value || typeof value !== 'object') return undefined
@@ -54,46 +36,6 @@ const normalizeLog = (value: unknown, totalPages: number): ReadingLog | undefine
     startPage,
     endPage,
     content: toTrimmedText(raw.content),
-  }
-}
-
-const normalizeBookRecord = (value: unknown): Book | undefined => {
-  if (!value || typeof value !== 'object') return undefined
-
-  const raw = value as Partial<Book>
-  const title = toTrimmedText(raw.title)
-  const author = toTrimmedText(raw.author)
-
-  if (!title || !author) return undefined
-
-  const totalPages = normalizePositiveInt(raw.totalPages, 1)
-  const currentPage = clamp(Math.floor(Number(raw.currentPage ?? 0)) || 0, 0, totalPages)
-  const status = STATUS_ORDER.includes(raw.status as BookStatus) ? raw.status as BookStatus : 'TO_READ'
-  const logs = Array.isArray(raw.logs)
-    ? raw.logs
-        .map(log => normalizeLog(log, totalPages))
-        .filter((log): log is ReadingLog => Boolean(log))
-    : []
-
-  const tags = Array.isArray(raw.tags)
-    ? raw.tags.filter((t): t is string => typeof t === 'string').map(t => t.trim()).filter(t => t.length > 0)
-    : []
-
-  return {
-    id: typeof raw.id === 'string' && raw.id ? raw.id : crypto.randomUUID(),
-    title,
-    author,
-    coverUrl: toTrimmedText(raw.coverUrl),
-    totalPages,
-    currentPage,
-    status,
-    startDate: typeof raw.startDate === 'string' && raw.startDate ? raw.startDate : undefined,
-    endDate: typeof raw.endDate === 'string' && raw.endDate ? raw.endDate : undefined,
-    rating: normalizeRating(raw.rating),
-    review: toTrimmedText(raw.review),
-    tags,
-    logs,
-    createdAt: typeof raw.createdAt === 'string' && raw.createdAt ? raw.createdAt : new Date().toISOString(),
   }
 }
 
@@ -117,51 +59,44 @@ const withStatusTransitions = (book: Book, nextStatus: BookStatus) => {
 export const useBookStore = defineStore('book', () => {
   const books = ref<Book[]>([])
   const theme = ref<ThemePreference>('light')
+  const isHydrated = ref(false)
 
-  const loadBooks = () => {
-    try {
-      const stored = localStorage.getItem(BOOKS_STORAGE_KEY)
-      if (!stored) {
-        books.value = []
-        return
-      }
+  const repository = getBookRepository()
+  let initializePromise: Promise<void> | null = null
+  let persistQueue = Promise.resolve()
 
-      const parsed = JSON.parse(stored)
-      books.value = Array.isArray(parsed)
-        ? parsed
-            .map(item => normalizeBookRecord(item))
-            .filter((item): item is Book => Boolean(item))
-        : []
-    } catch (error) {
-      console.error('Failed to load books from localStorage:', error)
-      books.value = []
-    }
+  const enqueuePersist = (task: () => Promise<void>) => {
+    persistQueue = persistQueue
+      .then(task)
+      .catch(error => console.error('Failed to persist book store:', error))
   }
 
-  const loadTheme = () => {
-    try {
-      const stored = localStorage.getItem(THEME_STORAGE_KEY)
-      theme.value = stored === 'dark' ? 'dark' : 'light'
-    } catch (error) {
-      console.error('Failed to load theme from localStorage:', error)
-      theme.value = 'light'
-    }
+  const initialize = (): Promise<void> => {
+    initializePromise ??= (async () => {
+      const snapshot = await repository.hydrate()
+      books.value = snapshot.books
+      theme.value = snapshot.theme
+      document.documentElement.classList.toggle('dark', snapshot.theme === 'dark')
+      isHydrated.value = true
+    })()
+    return initializePromise
   }
 
-  const persistBooks = () => {
-    localStorage.setItem(BOOKS_STORAGE_KEY, JSON.stringify(books.value))
-  }
+  watch(
+    books,
+    value => {
+      if (!isHydrated.value) return
+      const snapshot = JSON.parse(JSON.stringify(value)) as Book[]
+      enqueuePersist(() => repository.saveBooks(snapshot))
+    },
+    { deep: true },
+  )
 
-  const persistTheme = () => {
-    localStorage.setItem(THEME_STORAGE_KEY, theme.value)
-    document.documentElement.classList.toggle('dark', theme.value === 'dark')
-  }
-
-  loadBooks()
-  loadTheme()
-
-  watch(books, persistBooks, { deep: true })
-  watch(theme, persistTheme, { immediate: true })
+  watch(theme, value => {
+    document.documentElement.classList.toggle('dark', value === 'dark')
+    if (!isHydrated.value) return
+    enqueuePersist(() => repository.saveTheme(value))
+  })
 
   const readingBooks = computed(() => books.value.filter(book => book.status === 'READING'))
   const readBooks = computed(() => books.value.filter(book => book.status === 'READ'))
@@ -346,6 +281,8 @@ export const useBookStore = defineStore('book', () => {
   return {
     books,
     theme,
+    isHydrated,
+    initialize,
     readingBooks,
     readBooks,
     getBookById,
