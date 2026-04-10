@@ -48,7 +48,8 @@ const filteredBooks = computed(() => {
     .filter(book => {
       const matchesSearch = !query ||
         book.title.toLowerCase().includes(query) ||
-        book.author.toLowerCase().includes(query)
+        book.author.toLowerCase().includes(query) ||
+        book.tags.some(tag => tag.toLowerCase().includes(query))
       const matchesStatus = statusFilter.value === 'ALL' || book.status === statusFilter.value
       return matchesSearch && matchesStatus
     })
@@ -282,6 +283,19 @@ const getStatusLabel = (status: BookStatus) => {
                   class="h-4 w-4"
                   :class="rating <= book.rating ? 'fill-current' : 'text-muted-foreground'"
                 />
+              </div>
+
+              <div v-if="book.tags.length > 0" class="flex flex-wrap gap-1">
+                <span
+                  v-for="tag in book.tags.slice(0, 3)"
+                  :key="tag"
+                  class="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary"
+                >
+                  {{ tag }}
+                </span>
+                <span v-if="book.tags.length > 3" class="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                  +{{ book.tags.length - 3 }}
+                </span>
               </div>
             </div>
 

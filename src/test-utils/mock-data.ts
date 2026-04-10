@@ -26,6 +26,7 @@ export function createMockBook(overrides?: Partial<Book>): Book {
     totalPages: 300,
     currentPage: 0,
     status: 'TO_READ' as BookStatus,
+    tags: [],
     logs: [],
     createdAt: new Date().toISOString(),
     ...overrides,
