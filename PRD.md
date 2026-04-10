@@ -12,17 +12,18 @@
 
 ## 3. 주요 기능 (Key Features)
 
-### 3.1 도서 목록 관리 (Book List Management)
+### 3.1 도서 목록 관리 (Book List Management) ✅
 
-- **도서 등록**: 검색(API 연동 예정) 또는 수동 입력을 통해 도서를 내 서재에 추가.
+- **도서 등록**: 수동 입력을 통해 도서를 내 서재에 추가. (검색 API 연동 예정)
 - **도서 상태 분류**:
   - 읽고 싶은 책 (To Read)
   - 읽는 중 (Reading)
   - 읽은 책 (Read)
-  - 중단함 (Paused/Dropped)
+  - 중단함 (Stopped)
 - **목록 조회**: 상태별, 평점별, 날짜별 정렬 및 필터링.
+- **태그/키워드**: 책에 태그를 추가하고 태그로 검색.
 
-### 3.2 독서 기록 (Reading Records)
+### 3.2 독서 기록 (Reading Records) ✅
 
 - **진행률 추적**:
   - 전체 페이지 수 대비 읽은 페이지 수 입력.
@@ -33,31 +34,48 @@
 - **독서 노트 (Reading Logs)**:
   - 읽는 도중 인상 깊은 구절이나 생각을 페이지 번호와 함께 기록.
 
-### 3.3 리뷰 및 서평 (Review & Critique)
+### 3.3 리뷰 및 서평 (Review & Critique) ✅
 
 - **전체 리뷰**: 완독 후 책에 대한 총평 작성.
 - **별점 평가**: 1~5점 척도로 평가.
-- **태그/키워드**: 책의 장르나 핵심 키워드 태깅.
 
-### 3.4 통계 및 대시보드 (Statistics & Dashboard)
+### 3.4 통계 및 대시보드 (Statistics & Dashboard) ✅
 
-- **완독 여부**: 연간/월간 완독 권수 시각화.
-- **독서 달력**: 날짜별 독서 활동 히트맵 (GitHub 잔디 심기 스타일).
+- **완독 권수**: 연간/월간 완독 권수 시각화 (바 차트, Pages/Books 탭 전환).
+- **독서 달력**: 날짜별 독서 활동 히트맵 (GitHub 잔디 스타일, 52주).
+
+### 3.5 도서 검색 API 연동 (Book Search) 🔜 예정
+
+- 책 등록 시 제목/저자/ISBN으로 외부 API 검색.
+- 검색 결과에서 선택 시 표지 이미지, 저자, 페이지수 자동 입력.
+- **구현 계획**: 카카오 책 검색 API(메인) + Google Books API(페이지수 보조)
+  - 카카오 API: CORS 허용, 한국 도서 커버리지 우수
+  - Google Books API: CORS 허용, pageCount 제공
+  - 향후 Supabase Edge Function 기반 알라딘 API 프록시로 전환 고려
 
 ## 4. 사용자 인터페이스 (UI/UX Requirements)
 
 - **디자인 컨셉**: 깔끔하고 모던한 디자인, 집중을 돕는 차분한 컬러 팔레트.
 - **반응형 웹**: 데스크탑 및 모바일 환경 최적화.
-- **다크 모드**: 야간 독서 기록을 위한 다크 모드 지원.
+- **다크 모드**: 야간 독서 기록을 위한 다크 모드 지원. ✅
 
 ## 5. 기술적 요구사항 (Technical Requirements)
 
 - **Frontend**: Vue.js 3 (Vite), Tailwind CSS
 - **State Management**: Pinia
-- **Data Persistence**: LocalStorage (MVP) -> 추후 Backend/DB 연동 고려
+- **Data Persistence**:
+  - ~~LocalStorage (MVP)~~ → **IndexedDB (Dexie 4.x)** ✅
+  - BookRepository 패턴으로 persistence layer 추상화 (Supabase 전환 대비)
+  - 기존 localStorage 데이터 첫 실행 시 자동 마이그레이션
+- **Testing**: Vitest (unit), Playwright (E2E, 11개 시나리오)
 
 ## 6. 향후 확장 고려 (Future Scope)
 
-- 소셜 기능 (친구와 책 공유, 코멘트)
-- 독서 타이머 기능
-- 알라딘/교보문고 등 도서 API 연동
+| 항목 | 상태 | 비고 |
+|------|------|------|
+| 도서 검색 API 연동 | 🔜 다음 작업 | 카카오 + Google Books |
+| Supabase 백엔드 연동 | 📋 예정 | BookRepository 교체만으로 전환 가능 |
+| 인증(Auth) | 📋 예정 | Supabase Auth (이메일/소셜) |
+| 멀티 디바이스 지원 | 📋 예정 | Supabase 연동 후 |
+| 소셜 기능 | 💡 아이디어 | 친구와 책 공유, 코멘트 |
+| 독서 타이머 | 💡 아이디어 | |
