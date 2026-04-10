@@ -22,6 +22,7 @@ export interface Book {
   endDate?: string
   rating?: number
   review?: string
+  tags: string[]
   logs: ReadingLog[]
   createdAt: string
 }
@@ -33,6 +34,7 @@ export interface BookDraft {
   status: BookStatus
   currentPage?: number
   coverUrl?: string
+  tags?: string[]
 }
 
 export interface ReviewDraft {
