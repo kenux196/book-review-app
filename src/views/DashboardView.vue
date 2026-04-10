@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 import { BookOpen, CheckCircle2, Clock3, LibraryBig, Sparkles } from 'lucide-vue-next'
 import { useBookStore } from '../stores/book'
+import ReadingHeatmap from '../components/ReadingHeatmap.vue'
 
 const bookStore = useBookStore()
 
@@ -72,6 +73,8 @@ const readingStreakHint = computed(() => {
         <p class="mt-2 text-sm text-muted-foreground">전체 책에서 누적한 페이지 수</p>
       </article>
     </section>
+
+    <ReadingHeatmap />
 
     <section class="space-y-4">
       <div class="flex items-center justify-between gap-4">
