@@ -13,31 +13,12 @@ import type {
 import {
   toTrimmedText,
   normalizeRating,
-  normalizePositiveInt,
   clamp,
 } from './bookPersistenceUtils'
 import { getBookRepository } from './bookRepositoryProvider'
 
 const STATUS_ORDER: BookStatus[] = ['TO_READ', 'READING', 'READ', 'STOPPED']
 
-const normalizeLog = (value: unknown, totalPages: number): ReadingLog | undefined => {
-  if (!value || typeof value !== 'object') return undefined
-
-  const raw = value as Partial<ReadingLog>
-  const startPage = Math.floor(Number(raw.startPage))
-  const endPage = Math.floor(Number(raw.endPage))
-
-  if (!Number.isFinite(startPage) || !Number.isFinite(endPage)) return undefined
-  if (startPage < 1 || endPage < startPage || endPage > totalPages) return undefined
-
-  return {
-    id: typeof raw.id === 'string' && raw.id ? raw.id : crypto.randomUUID(),
-    date: typeof raw.date === 'string' && raw.date ? raw.date : new Date().toISOString(),
-    startPage,
-    endPage,
-    content: toTrimmedText(raw.content),
-  }
-}
 
 const withStatusTransitions = (book: Book, nextStatus: BookStatus) => {
   const now = new Date().toISOString()

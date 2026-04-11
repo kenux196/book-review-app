@@ -1,14 +1,21 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { addDays, format, getDay, startOfDay, subDays } from 'date-fns'
+import { computed, ref } from 'vue'
+import {
+  addDays,
+  endOfYear,
+  format,
+  getDay,
+  isAfter,
+  isSameDay,
+  startOfDay,
+  startOfYear,
+  subDays,
+} from 'date-fns'
 import { useBookStore } from '../stores/book'
 
 const bookStore = useBookStore()
-
-const weeksCount = 52
-
-type DayCell = { date: Date; dateKey: string; pages: number }
-type WeekRow = (DayCell | null)[]
+const currentYear = ref(new Date().getFullYear())
+const today = startOfDay(new Date())
 
 // 날짜별 읽은 페이지 합산
 const activityMap = computed(() => {
@@ -23,27 +30,55 @@ const activityMap = computed(() => {
   return map
 })
 
-// 그리드 생성 (일요일 기준 정렬)
-const grid = computed((): WeekRow[] => {
-  const today = startOfDay(new Date())
-  const todayDow = getDay(today)
-  const WEEKS = weeksCount
-  const startDate = subDays(today, todayDow + WEEKS * 7)
-  const totalDays = todayDow + WEEKS * 7 + 1
+// 연도 이동 함수
+const goToPrevYear = () => {
+  currentYear.value--
+}
 
-  const days: DayCell[] = Array.from({ length: totalDays }, (_, i) => {
+const goToNextYear = () => {
+  if (currentYear.value < today.getFullYear()) {
+    currentYear.value++
+  }
+}
+
+const isNextDisabled = computed(() => currentYear.value >= today.getFullYear())
+
+type DayCell = { date: Date; dateKey: string; pages: number; isFuture: boolean }
+type WeekRow = (DayCell | null)[]
+
+// 그리드 생성 (일요일 기준 정렬, 선택된 연도의 전체 일수 포함)
+const grid = computed((): WeekRow[] => {
+  const jan1 = startOfYear(new Date(currentYear.value, 0, 1))
+  const dec31 = endOfYear(jan1)
+
+  // 1월 1일이 포함된 주의 일요일 찾기
+  const startDayOfWeek = getDay(jan1)
+  const startDate = subDays(jan1, startDayOfWeek)
+
+  // 12월 31일이 포함된 주의 토요일까지의 총 일수 계산
+  const endDayOfWeek = getDay(dec31)
+  // 실제 그리드에 필요한 총 일수 (앞뒤 패딩 포함)
+  const gridDays = startDayOfWeek + (365 + (currentYear.value % 4 === 0 ? 1 : 0)) + (6 - endDayOfWeek)
+
+  const days: (DayCell | null)[] = Array.from({ length: gridDays }, (_, i) => {
     const date = addDays(startDate, i)
+    // 현재 선택된 연도 범위를 벗어나는 날짜는 null 처리 (패딩)
+    if (date.getFullYear() !== currentYear.value) return null
+
     const dateKey = format(date, 'yyyy-MM-dd')
-    return { date, dateKey, pages: activityMap.value.get(dateKey) ?? 0 }
+    const isFuture = isAfter(date, today) && !isSameDay(date, today)
+
+    return {
+      date,
+      dateKey,
+      pages: activityMap.value.get(dateKey) ?? 0,
+      isFuture,
+    }
   })
 
-  // 마지막 주를 7칸으로 패딩
-  const padded: (DayCell | null)[] = [...days]
-  while (padded.length % 7 !== 0) padded.push(null)
-
   const weeks: WeekRow[] = []
-  for (let i = 0; i < padded.length; i += 7) {
-    weeks.push(padded.slice(i, i + 7))
+  for (let i = 0; i < days.length; i += 7) {
+    weeks.push(days.slice(i, i + 7))
   }
   return weeks
 })
@@ -52,29 +87,44 @@ const getMonthLabel = (weekIndex: number): string => {
   const week = grid.value[weekIndex]
   const firstDay = week?.find((d): d is DayCell => d !== null)
   if (!firstDay) return ''
-  if (weekIndex === 0) return format(firstDay.date, 'MMM')
-  const prevWeek = grid.value[weekIndex - 1]
-  const prevFirstDay = prevWeek?.find((d): d is DayCell => d !== null)
-  if (prevFirstDay && firstDay.date.getMonth() !== prevFirstDay.date.getMonth()) {
-    return format(firstDay.date, 'MMM')
+
+  // 해당 주의 첫 번째 실제 날짜가 1일이거나, 그리드의 첫 번째 주인 경우
+  if (firstDay.date.getDate() <= 7) {
+    const prevWeek = grid.value[weekIndex - 1]
+    const prevFirstDay = prevWeek?.find((d): d is DayCell => d !== null)
+
+    if (!prevFirstDay || firstDay.date.getMonth() !== prevFirstDay.date.getMonth()) {
+      return format(firstDay.date, 'MMM')
+    }
   }
   return ''
 }
 
-const getCellColor = (pages: number) => {
-  if (pages === 0) return 'bg-muted'
-  if (pages <= 20) return 'bg-primary/30'
-  if (pages <= 50) return 'bg-primary/55'
-  if (pages <= 100) return 'bg-primary/80'
+const getCellColor = (day: DayCell) => {
+  if (day.isFuture) return 'bg-muted/30 opacity-40'
+  if (day.pages === 0) return 'bg-muted'
+  if (day.pages <= 20) return 'bg-primary/30'
+  if (day.pages <= 50) return 'bg-primary/55'
+  if (day.pages <= 100) return 'bg-primary/80'
   return 'bg-primary'
 }
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
-const totalActiveDays = computed(() => activityMap.value.size)
-const totalPagesLogged = computed(() =>
-  [...activityMap.value.values()].reduce((a, b) => a + b, 0),
-)
+// 현재 선택된 연도의 통계
+const yearStats = computed(() => {
+  let activeDays = 0
+  let totalPages = 0
+  const yearPrefix = `${currentYear.value}-`
+
+  for (const [date, pages] of activityMap.value.entries()) {
+    if (date.startsWith(yearPrefix)) {
+      activeDays++
+      totalPages += pages
+    }
+  }
+  return { activeDays, totalPages }
+})
 </script>
 
 <template>
@@ -82,57 +132,81 @@ const totalPagesLogged = computed(() =>
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
         <h2 class="text-xl font-semibold">Reading Activity</h2>
-        <p class="text-sm text-muted-foreground">일별 독서 기록 — 최근 1년</p>
+        <p class="text-sm text-muted-foreground">{{ currentYear }}년 독서 기록</p>
       </div>
-      <div class="text-right text-sm text-muted-foreground">
-        <p><span class="font-medium text-foreground">{{ totalActiveDays }}일</span> 활동</p>
-        <p><span class="font-medium text-foreground">{{ totalPagesLogged.toLocaleString() }}p</span> 기록</p>
+
+      <div class="flex flex-col items-end gap-2">
+        <!-- 연도 네비게이션 -->
+        <div class="flex items-center gap-2 rounded-lg border border-border/50 bg-background/50 p-1">
+          <button
+            @click="goToPrevYear"
+            class="flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-accent-foreground"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <span class="px-2 text-sm font-medium">{{ currentYear }}년</span>
+          <button
+            @click="goToNextYear"
+            :disabled="isNextDisabled"
+            class="flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-30 disabled:hover:bg-transparent"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
+        </div>
+
+        <div class="text-right text-sm text-muted-foreground">
+          <p><span class="font-medium text-foreground">{{ yearStats.activeDays }}일</span> 활동</p>
+          <p><span class="font-medium text-foreground">{{ yearStats.totalPages.toLocaleString() }}p</span> 기록</p>
+        </div>
       </div>
     </div>
 
-    <div class="mt-6 w-full">
-      <!-- 월 레이블 행 -->
-      <div class="mb-1 flex items-end">
-        <div class="mr-1 w-7 shrink-0" />
-        <div
-          v-for="(week, wi) in grid"
-          :key="wi"
-          class="min-w-0 flex-1 overflow-hidden text-[10px] font-medium text-muted-foreground/80"
-        >
-          {{ getMonthLabel(wi) }}
-        </div>
-      </div>
-
-      <!-- 요일별 히트맵 행 -->
-      <div
-        v-for="(day, di) in DAY_LABELS"
-        :key="day"
-        class="mb-[3px] flex items-center"
-      >
-        <!-- 요일 레이블 -->
-        <div class="mr-1 w-7 shrink-0 text-right text-[10px] leading-none text-muted-foreground/60">
-          {{ di % 2 === 1 ? day : '' }}
-        </div>
-        <!-- 주별 셀 -->
-        <div
-          v-for="(week, wi) in grid"
-          :key="wi"
-          class="min-w-0 flex-1 px-[1.5px]"
-        >
+    <!-- 히트맵 영역 (가로 스크롤 가능) -->
+    <div class="mt-6 w-full overflow-x-auto pb-2">
+      <div class="min-w-[700px]">
+        <!-- 월 레이블 행 -->
+        <div class="mb-1 flex items-end">
+          <div class="mr-1 w-7 shrink-0" />
           <div
-            v-if="week[di]"
-            :title="`${week[di]!.dateKey}: ${week[di]!.pages}p 읽음`"
-            :class="[
-              'aspect-square w-full rounded-[3px] transition-all hover:scale-110 hover:ring-2 hover:ring-primary/20',
-              getCellColor(week[di]!.pages),
-            ]"
-          />
-          <div v-else class="aspect-square w-full" />
+            v-for="(_week, wi) in grid"
+            :key="wi"
+            class="min-w-0 flex-1 overflow-hidden text-[10px] font-medium text-muted-foreground/80"
+          >
+            {{ getMonthLabel(wi) }}
+          </div>
+        </div>
+
+        <!-- 요일별 히트맵 행 -->
+        <div
+          v-for="(day, di) in DAY_LABELS"
+          :key="day"
+          class="mb-[3px] flex items-center"
+        >
+          <!-- 요일 레이블 -->
+          <div class="mr-1 w-7 shrink-0 text-right text-[10px] leading-none text-muted-foreground/60">
+            {{ di % 2 === 1 ? day : '' }}
+          </div>
+          <!-- 주별 셀 -->
+          <div
+            v-for="(week, wi) in grid"
+            :key="wi"
+            class="min-w-0 flex-1 px-[1.5px]"
+          >
+            <div
+              v-if="week[di]"
+              :title="`${week[di]!.dateKey}: ${week[di]!.pages}p 읽음`"
+              :class="[
+                'aspect-square w-full rounded-[3px] transition-all hover:scale-110 hover:ring-2 hover:ring-primary/20',
+                getCellColor(week[di]!),
+              ]"
+            />
+            <div v-else class="aspect-square w-full bg-transparent" />
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- 범례 개선 -->
+    <!-- 범례 -->
     <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border/40 pt-4">
       <div class="flex items-center gap-4 text-[10px] text-muted-foreground">
         <div class="flex items-center gap-1.5">
