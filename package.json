@@ -25,7 +25,8 @@
     "vue-router": "^4.6.3"
   },
   "resolutions": {
-    "picomatch": "^4.0.3"
+    "picomatch": "^4.0.3",
+    "minimatch": "^9.0.9"
   },
   "devDependencies": {
     "@pinia/testing": "^1.0.3",
