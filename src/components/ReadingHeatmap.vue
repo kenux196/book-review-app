@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { addDays, format, getDay, startOfDay, subDays } from 'date-fns'
 import { useBookStore } from '../stores/book'
 
 const bookStore = useBookStore()
 
-const WEEKS = 52
+type ViewMode = '6months' | '1year'
+const viewMode = ref<ViewMode>('6months')
+
+const weeksCount = computed(() => (viewMode.value === '6months' ? 26 : 52))
 
 type DayCell = { date: Date; dateKey: string; pages: number }
 type WeekRow = (DayCell | null)[]
@@ -23,10 +26,11 @@ const activityMap = computed(() => {
   return map
 })
 
-// 52주 그리드 생성 (일요일 기준 정렬, 미래 셀은 null)
+// 그리드 생성 (일요일 기준 정렬)
 const grid = computed((): WeekRow[] => {
   const today = startOfDay(new Date())
   const todayDow = getDay(today)
+  const WEEKS = weeksCount.value
   const startDate = subDays(today, todayDow + WEEKS * 7)
   const totalDays = todayDow + WEEKS * 7 + 1
 
@@ -77,35 +81,58 @@ const totalPagesLogged = computed(() =>
 </script>
 
 <template>
-  <div class="rounded-[28px] border border-border/70 bg-card/90 p-6 shadow-sm">
+  <div class="rounded-[28px] border border-border/70 bg-card/90 p-6 shadow-sm transition-all duration-300">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <h2 class="text-xl font-semibold">Reading Activity</h2>
-        <p class="text-sm text-muted-foreground">일별 독서 기록 — 최근 1년</p>
+        <div class="flex items-center gap-3">
+          <h2 class="text-xl font-semibold">Reading Activity</h2>
+          <!-- 전환 토글 -->
+          <div class="flex rounded-lg bg-muted p-1 text-[10px] font-medium">
+            <button
+              @click="viewMode = '6months'"
+              :class="[
+                'rounded-[4px] px-2 py-0.5 transition-all',
+                viewMode === '6months' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground',
+              ]"
+            >
+              6개월
+            </button>
+            <button
+              @click="viewMode = '1year'"
+              :class="[
+                'rounded-[4px] px-2 py-0.5 transition-all',
+                viewMode === '1year' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground',
+              ]"
+            >
+              1년
+            </button>
+          </div>
+        </div>
+        <p class="text-sm text-muted-foreground">일별 독서 기록 — 최근 {{ viewMode === '6months' ? '6개월' : '1년' }}</p>
       </div>
       <div class="text-right text-sm text-muted-foreground">
-        <p>{{ totalActiveDays }}일 활동</p>
-        <p>{{ totalPagesLogged.toLocaleString() }}p 기록</p>
+        <p><span class="font-medium text-foreground">{{ totalActiveDays }}일</span> 활동</p>
+        <p><span class="font-medium text-foreground">{{ totalPagesLogged.toLocaleString() }}p</span> 기록</p>
       </div>
     </div>
 
-    <div class="mt-5 overflow-x-auto pb-1">
-      <div class="inline-flex gap-[3px]">
+    <div class="mt-6 overflow-x-auto pb-2 scrollbar-hide">
+      <div class="inline-flex gap-[4px]">
         <!-- 요일 레이블 -->
-        <div class="mr-1 flex flex-col gap-[3px] pt-6">
+        <div class="mr-1.5 flex flex-col gap-[4px] pt-6">
           <div
             v-for="(day, i) in DAY_LABELS"
             :key="day"
-            class="h-[13px] w-7 text-right text-[9px] leading-[13px] text-muted-foreground"
+            class="h-[14px] w-7 text-right text-[10px] leading-[14px] text-muted-foreground/60"
           >
             {{ i % 2 === 1 ? day : '' }}
           </div>
         </div>
 
         <!-- 주 열 -->
-        <div v-for="(week, wi) in grid" :key="wi" class="flex flex-col gap-[3px]">
+        <div v-for="(week, wi) in grid" :key="wi" class="flex flex-col gap-[4px]">
           <!-- 월 레이블 -->
-          <div class="h-5 text-[10px] leading-5 text-muted-foreground">
+          <div class="h-6 text-[10px] font-medium leading-6 text-muted-foreground/80">
             {{ getMonthLabel(wi) }}
           </div>
           <!-- 7일 셀 -->
@@ -113,23 +140,53 @@ const totalPagesLogged = computed(() =>
             <div
               v-if="day"
               :title="`${day.dateKey}: ${day.pages}p 읽음`"
-              :class="['h-[13px] w-[13px] rounded-sm transition-colors hover:opacity-80', getCellColor(day.pages)]"
+              :class="[
+                'h-[14px] w-[14px] rounded-[3px] transition-all hover:scale-110 hover:ring-2 hover:ring-primary/20',
+                getCellColor(day.pages),
+              ]"
             />
-            <div v-else class="h-[13px] w-[13px]" />
+            <div v-else class="h-[14px] w-[14px]" />
           </template>
         </div>
       </div>
     </div>
 
-    <!-- 범례 -->
-    <div class="mt-3 flex items-center justify-end gap-1.5 text-[11px] text-muted-foreground">
-      <span>Less</span>
-      <div class="h-[11px] w-[11px] rounded-sm bg-muted" />
-      <div class="h-[11px] w-[11px] rounded-sm bg-primary/30" />
-      <div class="h-[11px] w-[11px] rounded-sm bg-primary/55" />
-      <div class="h-[11px] w-[11px] rounded-sm bg-primary/80" />
-      <div class="h-[11px] w-[11px] rounded-sm bg-primary" />
-      <span>More</span>
+    <!-- 범례 개선 -->
+    <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border/40 pt-4">
+      <div class="flex items-center gap-4 text-[10px] text-muted-foreground">
+        <div class="flex items-center gap-1.5">
+          <div class="h-2.5 w-2.5 rounded-[2px] bg-primary/30" />
+          <span>~20p</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <div class="h-2.5 w-2.5 rounded-[2px] bg-primary/55" />
+          <span>~50p</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <div class="h-2.5 w-2.5 rounded-[2px] bg-primary/80" />
+          <span>~100p</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <div class="h-2.5 w-2.5 rounded-[2px] bg-primary" />
+          <span>100p+</span>
+        </div>
+      </div>
+      <div class="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        <span>Less</span>
+        <div class="h-[12px] w-[12px] rounded-[2px] bg-muted" />
+        <div class="h-[12px] w-[12px] rounded-[2px] bg-primary" />
+        <span>More</span>
+      </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+</style>
