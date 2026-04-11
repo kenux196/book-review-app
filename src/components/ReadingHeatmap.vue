@@ -1,14 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { addDays, format, getDay, startOfDay, subDays } from 'date-fns'
 import { useBookStore } from '../stores/book'
 
 const bookStore = useBookStore()
 
-type ViewMode = '6months' | '1year'
-const viewMode = ref<ViewMode>('6months')
-
-const weeksCount = computed(() => (viewMode.value === '6months' ? 26 : 52))
+const weeksCount = 52
 
 type DayCell = { date: Date; dateKey: string; pages: number }
 type WeekRow = (DayCell | null)[]
@@ -30,7 +27,7 @@ const activityMap = computed(() => {
 const grid = computed((): WeekRow[] => {
   const today = startOfDay(new Date())
   const todayDow = getDay(today)
-  const WEEKS = weeksCount.value
+  const WEEKS = weeksCount
   const startDate = subDays(today, todayDow + WEEKS * 7)
   const totalDays = todayDow + WEEKS * 7 + 1
 
@@ -84,31 +81,8 @@ const totalPagesLogged = computed(() =>
   <div class="rounded-[28px] border border-border/70 bg-card/90 p-6 shadow-sm transition-all duration-300">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <div class="flex items-center gap-3">
-          <h2 class="text-xl font-semibold">Reading Activity</h2>
-          <!-- 전환 토글 -->
-          <div class="flex rounded-lg bg-muted p-1 text-[10px] font-medium">
-            <button
-              @click="viewMode = '6months'"
-              :class="[
-                'rounded-[4px] px-2 py-0.5 transition-all',
-                viewMode === '6months' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground',
-              ]"
-            >
-              6개월
-            </button>
-            <button
-              @click="viewMode = '1year'"
-              :class="[
-                'rounded-[4px] px-2 py-0.5 transition-all',
-                viewMode === '1year' ? 'bg-background shadow-sm' : 'text-muted-foreground hover:text-foreground',
-              ]"
-            >
-              1년
-            </button>
-          </div>
-        </div>
-        <p class="text-sm text-muted-foreground">일별 독서 기록 — 최근 {{ viewMode === '6months' ? '6개월' : '1년' }}</p>
+        <h2 class="text-xl font-semibold">Reading Activity</h2>
+        <p class="text-sm text-muted-foreground">일별 독서 기록 — 최근 1년</p>
       </div>
       <div class="text-right text-sm text-muted-foreground">
         <p><span class="font-medium text-foreground">{{ totalActiveDays }}일</span> 활동</p>
@@ -116,37 +90,44 @@ const totalPagesLogged = computed(() =>
       </div>
     </div>
 
-    <div class="mt-6 overflow-x-auto pb-2 scrollbar-hide">
-      <div class="inline-flex gap-[4px]">
-        <!-- 요일 레이블 -->
-        <div class="mr-1.5 flex flex-col gap-[4px] pt-6">
-          <div
-            v-for="(day, i) in DAY_LABELS"
-            :key="day"
-            class="h-[14px] w-7 text-right text-[10px] leading-[14px] text-muted-foreground/60"
-          >
-            {{ i % 2 === 1 ? day : '' }}
-          </div>
+    <div class="mt-6 w-full">
+      <!-- 월 레이블 행 -->
+      <div class="mb-1 flex items-end">
+        <div class="mr-1 w-7 shrink-0" />
+        <div
+          v-for="(week, wi) in grid"
+          :key="wi"
+          class="min-w-0 flex-1 overflow-hidden text-[10px] font-medium text-muted-foreground/80"
+        >
+          {{ getMonthLabel(wi) }}
         </div>
+      </div>
 
-        <!-- 주 열 -->
-        <div v-for="(week, wi) in grid" :key="wi" class="flex flex-col gap-[4px]">
-          <!-- 월 레이블 -->
-          <div class="h-6 text-[10px] font-medium leading-6 text-muted-foreground/80">
-            {{ getMonthLabel(wi) }}
-          </div>
-          <!-- 7일 셀 -->
-          <template v-for="(day, di) in week" :key="di">
-            <div
-              v-if="day"
-              :title="`${day.dateKey}: ${day.pages}p 읽음`"
-              :class="[
-                'h-[14px] w-[14px] rounded-[3px] transition-all hover:scale-110 hover:ring-2 hover:ring-primary/20',
-                getCellColor(day.pages),
-              ]"
-            />
-            <div v-else class="h-[14px] w-[14px]" />
-          </template>
+      <!-- 요일별 히트맵 행 -->
+      <div
+        v-for="(day, di) in DAY_LABELS"
+        :key="day"
+        class="mb-[3px] flex items-center"
+      >
+        <!-- 요일 레이블 -->
+        <div class="mr-1 w-7 shrink-0 text-right text-[10px] leading-none text-muted-foreground/60">
+          {{ di % 2 === 1 ? day : '' }}
+        </div>
+        <!-- 주별 셀 -->
+        <div
+          v-for="(week, wi) in grid"
+          :key="wi"
+          class="min-w-0 flex-1 px-[1.5px]"
+        >
+          <div
+            v-if="week[di]"
+            :title="`${week[di]!.dateKey}: ${week[di]!.pages}p 읽음`"
+            :class="[
+              'aspect-square w-full rounded-[3px] transition-all hover:scale-110 hover:ring-2 hover:ring-primary/20',
+              getCellColor(week[di]!.pages),
+            ]"
+          />
+          <div v-else class="aspect-square w-full" />
         </div>
       </div>
     </div>
@@ -181,12 +162,3 @@ const totalPagesLogged = computed(() =>
   </div>
 </template>
 
-<style scoped>
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
-}
-.scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-</style>
