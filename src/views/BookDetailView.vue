@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, BookOpen, Calendar, CheckCircle2, ChevronDown, Star, Trash2, X } from 'lucide-vue-next'
+import { ArrowLeft, BookOpen, Calendar, CheckCircle2, ChevronDown, Pencil, Star, Trash2, X } from 'lucide-vue-next'
 import { format } from 'date-fns'
 import { useBookStore } from '../stores/book'
-import type { BookStatus } from '../types/book'
+import type { BookDraft, BookStatus } from '../types/book'
 
 const route = useRoute()
 const router = useRouter()
@@ -12,6 +12,10 @@ const bookStore = useBookStore()
 
 const bookId = computed(() => route.params.id as string)
 const book = computed(() => bookStore.getBookById(bookId.value))
+
+const isEditing = ref(false)
+const editDraft = ref<Partial<BookDraft>>({})
+const editError = ref('')
 
 const showLogForm = ref(false)
 const logError = ref('')
@@ -62,6 +66,35 @@ const handleStatusChange = (event: Event) => {
 
   if (!result.ok) {
     logError.value = result.message
+  }
+}
+
+const startEditing = () => {
+  if (!book.value) return
+  editDraft.value = {
+    title: book.value.title,
+    author: book.value.author,
+    totalPages: book.value.totalPages,
+    coverUrl: book.value.coverUrl,
+    status: book.value.status,
+  }
+  isEditing.value = true
+  editError.value = ''
+}
+
+const cancelEditing = () => {
+  isEditing.value = false
+  editError.value = ''
+}
+
+const handleSaveEdit = () => {
+  if (!book.value) return
+
+  const result = bookStore.updateBook(book.value.id, editDraft.value)
+  if (result.ok) {
+    isEditing.value = false
+  } else {
+    editError.value = result.message
   }
 }
 
@@ -149,7 +182,7 @@ const handleSaveReview = () => {
 
       <div class="space-y-5">
         <div class="flex flex-wrap items-start justify-between gap-4">
-          <div class="space-y-3">
+          <div class="flex-1 space-y-3">
             <button
               type="button"
               class="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition hover:text-foreground"
@@ -158,32 +191,93 @@ const handleSaveReview = () => {
               <ArrowLeft class="h-4 w-4" />
               <span>Back</span>
             </button>
-            <div>
+            <div v-if="!isEditing">
               <h1 class="text-3xl font-semibold tracking-tight">{{ book.title }}</h1>
               <p class="mt-1 text-base text-muted-foreground">{{ book.author }}</p>
+            </div>
+            <div v-else class="space-y-3">
+              <div class="grid gap-3">
+                <input
+                  v-model="editDraft.title"
+                  class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-xl font-semibold outline-none transition focus:border-primary"
+                  placeholder="Book Title"
+                />
+                <input
+                  v-model="editDraft.author"
+                  class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
+                  placeholder="Author"
+                />
+                <div class="grid gap-3 sm:grid-cols-2">
+                  <label class="flex flex-col gap-1.5">
+                    <span class="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Pages</span>
+                    <input
+                      v-model.number="editDraft.totalPages"
+                      type="number"
+                      min="1"
+                      class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
+                    />
+                  </label>
+                  <label class="flex flex-col gap-1.5">
+                    <span class="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cover Image URL</span>
+                    <input
+                      v-model="editDraft.coverUrl"
+                      class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
+                      placeholder="https://..."
+                    />
+                  </label>
+                </div>
+              </div>
+              <p v-if="editError" class="text-sm font-medium text-destructive">{{ editError }}</p>
             </div>
           </div>
 
           <div class="flex flex-wrap items-center gap-3">
-            <label class="relative">
-              <select
-                :value="book.status"
-                class="h-11 appearance-none rounded-2xl border border-input bg-background px-4 pr-10 text-sm outline-none transition focus:border-primary"
-                @change="handleStatusChange"
-              >
-                <option v-for="option in statusOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
-              </select>
-              <ChevronDown class="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            </label>
+            <template v-if="!isEditing">
+              <label class="relative">
+                <select
+                  :value="book.status"
+                  class="h-11 appearance-none rounded-2xl border border-input bg-background px-4 pr-10 text-sm outline-none transition focus:border-primary"
+                  @change="handleStatusChange"
+                >
+                  <option v-for="option in statusOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                </select>
+                <ChevronDown class="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              </label>
 
-            <button
-              type="button"
-              aria-label="Delete book"
-              class="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border text-destructive transition hover:bg-destructive/10"
-              @click="handleDelete"
-            >
-              <Trash2 class="h-4 w-4" />
-            </button>
+              <button
+                type="button"
+                aria-label="Edit book"
+                class="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                @click="startEditing"
+              >
+                <Pencil class="h-4 w-4" />
+              </button>
+
+              <button
+                type="button"
+                aria-label="Delete book"
+                class="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border text-destructive transition hover:bg-destructive/10"
+                @click="handleDelete"
+              >
+                <Trash2 class="h-4 w-4" />
+              </button>
+            </template>
+            <template v-else>
+              <button
+                type="button"
+                class="inline-flex h-11 items-center justify-center rounded-2xl border border-border px-4 text-sm font-medium transition hover:bg-muted"
+                @click="cancelEditing"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                class="inline-flex h-11 items-center justify-center rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90"
+                @click="handleSaveEdit"
+              >
+                Save
+              </button>
+            </template>
           </div>
         </div>
 

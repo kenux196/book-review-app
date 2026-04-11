@@ -162,4 +162,48 @@ describe('BookDetailView', () => {
     expect(store.books).toHaveLength(0)
     expect(router.currentRoute.value.fullPath).toBe('/books')
   })
+
+  it('edits book details and saves changes', async () => {
+    const store = useBookStore()
+    store.addBook({ title: 'Original Title', author: 'Original Author', totalPages: 100, status: 'TO_READ' })
+    const bookId = store.books[0]!.id
+
+    const router = createTestRouter()
+    await router.push(`/books/${bookId}`)
+    await router.isReady()
+
+    const wrapper = mount(BookDetailView, {
+      global: { plugins: [router] },
+    })
+
+    // Enter edit mode
+    await wrapper.find('button[aria-label="Edit book"]').trigger('click')
+    
+    // Check if inputs are visible
+    const titleInput = wrapper.find('input[placeholder="Book Title"]')
+    const authorInput = wrapper.find('input[placeholder="Author"]')
+    const pagesInput = wrapper.find('input[type="number"]')
+    
+    expect(titleInput.exists()).toBe(true)
+    expect(authorInput.exists()).toBe(true)
+
+    // Modify values
+    await titleInput.setValue('Updated Title')
+    await authorInput.setValue('Updated Author')
+    await pagesInput.setValue('150')
+
+    // Save changes
+    const saveButton = wrapper.findAll('button').find(button => button.text() === 'Save')
+    await saveButton?.trigger('click')
+
+    // Verify store update
+    expect(store.books[0]!.title).toBe('Updated Title')
+    expect(store.books[0]!.author).toBe('Updated Author')
+    expect(store.books[0]!.totalPages).toBe(150)
+
+    // Verify UI switched back to display mode
+    expect(wrapper.find('h1').text()).toBe('Updated Title')
+    expect(wrapper.text()).toContain('Updated Author')
+    expect(wrapper.find('input[placeholder="Book Title"]').exists()).toBe(false)
+  })
 })

@@ -190,3 +190,19 @@ test('changes book status and persists after reload', async ({ page }) => {
   await page.reload()
   await expect(page.locator('select').first()).toHaveValue('READING')
 })
+
+test('edits book metadata and persists after reload', async ({ page }) => {
+  await page.goto('/books/book-1')
+
+  await page.getByRole('button', { name: 'Edit book' }).click()
+  await page.getByPlaceholder('Book Title').fill('Clean Code (Updated)')
+  await page.getByPlaceholder('Author').fill('Robert C. Martin (2nd)')
+  await page.getByRole('button', { name: 'Save', exact: true }).click()
+
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Clean Code (Updated)')
+  await expect(page.getByText('Robert C. Martin (2nd)')).toBeVisible()
+
+  await page.waitForTimeout(300)
+  await page.reload()
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Clean Code (Updated)')
+})
