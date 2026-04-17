@@ -45,6 +45,60 @@ describe('BookListView', () => {
     expect(store.books[0]!.coverUrl).toBe('https://example.com/book.jpg')
   })
 
+  it('captures initial reading status and progress when adding a book', async () => {
+    const router = createTestRouter()
+    await router.push('/books')
+    await router.isReady()
+
+    const wrapper = mount(BookListView, {
+      global: { plugins: [router] },
+    })
+
+    await wrapper.find('button').trigger('click')
+    await wrapper.find('input[placeholder="Book Title"]').setValue('Currently Reading')
+    await wrapper.find('input[placeholder="Author Name"]').setValue('Reader')
+    await wrapper.find('input[placeholder="Total Pages"]').setValue('280')
+    await wrapper.find('select[aria-label="Initial status"]').setValue('READING')
+    await wrapper.find('input[placeholder="Current Page"]').setValue('48')
+
+    const saveButton = wrapper.findAll('button').find(button => button.text() === 'Save Book')
+    await saveButton?.trigger('click')
+
+    const store = useBookStore()
+    expect(store.books).toHaveLength(1)
+    expect(store.books[0]!.status).toBe('READING')
+    expect(store.books[0]!.currentPage).toBe(48)
+    expect(store.books[0]!.startDate).toBeTruthy()
+  })
+
+  it('hides progress input for completed books and saves them as finished', async () => {
+    const router = createTestRouter()
+    await router.push('/books')
+    await router.isReady()
+
+    const wrapper = mount(BookListView, {
+      global: { plugins: [router] },
+    })
+
+    await wrapper.find('button').trigger('click')
+    await wrapper.find('input[placeholder="Book Title"]').setValue('Finished Book')
+    await wrapper.find('input[placeholder="Author Name"]').setValue('Finisher')
+    await wrapper.find('input[placeholder="Total Pages"]').setValue('410')
+    await wrapper.find('select[aria-label="Initial status"]').setValue('READ')
+
+    expect(wrapper.find('input[placeholder="Current Page"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('100%')
+
+    const saveButton = wrapper.findAll('button').find(button => button.text() === 'Save Book')
+    await saveButton?.trigger('click')
+
+    const store = useBookStore()
+    expect(store.books).toHaveLength(1)
+    expect(store.books[0]!.status).toBe('READ')
+    expect(store.books[0]!.currentPage).toBe(410)
+    expect(store.books[0]!.endDate).toBeTruthy()
+  })
+
   it('shows an inline error for invalid input', async () => {
     const router = createTestRouter()
     await router.push('/books')

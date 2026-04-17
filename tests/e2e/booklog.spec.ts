@@ -61,11 +61,16 @@ test('adds a new book from the library form', async ({ page }) => {
   await page.getByPlaceholder('Book Title').fill('Domain-Driven Design')
   await page.getByPlaceholder('Author Name').fill('Eric Evans')
   await page.getByPlaceholder('Total Pages').fill('560')
+  await page.getByLabel('Initial status').selectOption('READING')
+  await page.getByPlaceholder('Current Page').fill('128')
   await page.getByPlaceholder('https://example.com/cover.jpg').fill('https://example.com/ddd.jpg')
   await page.getByRole('button', { name: 'Save Book' }).click()
 
   await expect(page.getByText('Domain-Driven Design')).toBeVisible()
   await expect(page.getByText('Eric Evans')).toBeVisible()
+  const newBookCard = page.getByRole('link', { name: /Domain-Driven Design/ })
+  await expect(newBookCard.getByText('Reading')).toBeVisible()
+  await expect(newBookCard.getByText('23%')).toBeVisible()
 })
 
 test('filters and sorts books in the library', async ({ page }) => {
@@ -89,11 +94,13 @@ test('saves review, adds reading log, and persists dark mode', async ({ page }) 
   await expect(page.getByText('리뷰와 별점을 저장했습니다.')).toBeVisible()
 
   await page.getByRole('button', { name: 'Add Log' }).click()
+  await page.locator('input[type="date"]').fill('2026-02-14')
   await page.locator('input[type="number"]').nth(0).fill('211')
   await page.locator('input[type="number"]').nth(1).fill('240')
   await page.getByPlaceholder('What stood out today?').fill('The chapter on long methods was especially clear.')
   await page.getByRole('button', { name: 'Save Log' }).click()
   await expect(page.getByText('The chapter on long methods was especially clear.')).toBeVisible()
+  await expect(page.getByText('Feb 14, 2026')).toBeVisible()
 
   await page.getByRole('button', { name: '라이트 모드 켜짐' }).click()
   await expect(page.locator('html')).toHaveClass(/dark/)
@@ -192,17 +199,42 @@ test('changes book status and persists after reload', async ({ page }) => {
 })
 
 test('edits book metadata and persists after reload', async ({ page }) => {
-  await page.goto('/books/book-1')
+  await page.goto('/books/book-2')
 
   await page.getByRole('button', { name: 'Edit book' }).click()
-  await page.getByPlaceholder('Book Title').fill('Clean Code (Updated)')
-  await page.getByPlaceholder('Author').fill('Robert C. Martin (2nd)')
+  await page.getByPlaceholder('Book Title').fill('Refactoring (Updated)')
+  await page.getByPlaceholder('Author').fill('Martin Fowler (2nd)')
+  await page.locator('input[type="number"]').nth(1).fill('123')
+  await page.locator('input[type="date"]').nth(0).fill('2026-01-15')
+  await page.locator('input[type="date"]').nth(1).fill('2026-02-20')
   await page.getByRole('button', { name: 'Save', exact: true }).click()
 
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Clean Code (Updated)')
-  await expect(page.getByText('Robert C. Martin (2nd)')).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Refactoring (Updated)')
+  await expect(page.getByText('Martin Fowler (2nd)')).toBeVisible()
+  await expect(page.getByText('123 / 418 pages')).toBeVisible()
+  await expect(page.getByText('Jan 15, 2026')).toBeVisible()
+  await expect(page.getByText('Feb 20, 2026')).toBeVisible()
 
   await page.waitForTimeout(300)
   await page.reload()
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Clean Code (Updated)')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Refactoring (Updated)')
+  await expect(page.getByText('123 / 418 pages')).toBeVisible()
+  await expect(page.getByText('Jan 15, 2026')).toBeVisible()
+  await expect(page.getByText('Feb 20, 2026')).toBeVisible()
+})
+
+test('updates current page directly without creating a log', async ({ page }) => {
+  await page.goto('/books/book-3')
+
+  await page.getByRole('button', { name: '페이지 수정' }).click()
+  await page.locator('input[max="320"]').fill('55')
+  await page.getByRole('button', { name: '저장' }).click()
+
+  await expect(page.getByText('55 / 320 pages')).toBeVisible()
+  await expect(page.getByText('No reading logs yet.')).toBeVisible()
+
+  await page.waitForTimeout(300)
+  await page.reload()
+  await expect(page.getByText('55 / 320 pages')).toBeVisible()
+  await expect(page.locator('select').first()).toHaveValue('READING')
 })

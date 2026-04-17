@@ -34,6 +34,8 @@ export interface BookDraft {
   status: BookStatus
   currentPage?: number
   coverUrl?: string
+  startDate?: string
+  endDate?: string
   tags?: string[]
 }
 
@@ -45,6 +47,7 @@ export interface ReviewDraft {
 export interface ReadingLogDraft {
   startPage: number
   endPage: number
+  date?: string
   content?: string
 }
 

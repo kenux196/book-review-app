@@ -75,6 +75,24 @@ describe('useBookStore', () => {
     expect(repo.saveBooks).toHaveBeenCalled()
   })
 
+  it('accepts manual dates when creating a book', async () => {
+    const store = useBookStore()
+    await store.initialize()
+
+    const result = store.addBook({
+      title: 'Deep Work',
+      author: 'Cal Newport',
+      totalPages: 304,
+      status: 'READ',
+      startDate: '2026-03-01',
+      endDate: '2026-03-12',
+    })
+
+    expect(result).toEqual({ ok: true })
+    expect(getFirstBook(store).startDate).toBe('2026-03-01T00:00:00.000Z')
+    expect(getFirstBook(store).endDate).toBe('2026-03-12T00:00:00.000Z')
+  })
+
   it('applies status transitions when moving to reading and read', async () => {
     const store = useBookStore()
     await store.initialize()
@@ -101,6 +119,20 @@ describe('useBookStore', () => {
     expect(result).toEqual({ ok: false, message: '현재 페이지는 0에서 전체 페이지 수 사이여야 합니다.' })
   })
 
+  it('promotes a book to reading or read when current page is updated directly', async () => {
+    const store = useBookStore()
+    await store.initialize()
+
+    store.addBook({ title: 'Book', author: 'Author', totalPages: 100, status: 'TO_READ' })
+    const bookId = getFirstBook(store).id
+
+    expect(store.updateBook(bookId, { currentPage: 40 })).toEqual({ ok: true })
+    expect(getFirstBook(store).status).toBe('READING')
+
+    expect(store.updateBook(bookId, { currentPage: 100 })).toEqual({ ok: true })
+    expect(getFirstBook(store).status).toBe('READ')
+  })
+
   it('validates reading log boundaries and updates progress', async () => {
     const store = useBookStore()
     await store.initialize()
@@ -124,6 +156,37 @@ describe('useBookStore', () => {
     expect(getFirstBook(store).logs[0]!.content).toBe('first session')
     expect(getFirstBook(store).currentPage).toBe(25)
     expect(getFirstBook(store).status).toBe('READING')
+  })
+
+  it('saves reading logs with a user-selected date', async () => {
+    const store = useBookStore()
+    await store.initialize()
+
+    store.addBook({ title: 'Book', author: 'Author', totalPages: 300, status: 'TO_READ' })
+    const bookId = getFirstBook(store).id
+
+    expect(store.addReadingLog(bookId, {
+      startPage: 1,
+      endPage: 25,
+      date: '2026-03-08',
+      content: 'dated entry',
+    })).toEqual({ ok: true })
+
+    expect(getFirstBook(store).logs[0]?.date).toBe('2026-03-08T00:00:00.000Z')
+  })
+
+  it('rejects invalid manual date ranges', async () => {
+    const store = useBookStore()
+    await store.initialize()
+
+    expect(store.addBook({
+      title: 'Book',
+      author: 'Author',
+      totalPages: 100,
+      status: 'TO_READ',
+      startDate: '2026-03-20',
+      endDate: '2026-03-10',
+    })).toEqual({ ok: false, message: '시작일은 완료일보다 늦을 수 없습니다.' })
   })
 
   it('saves reviews with trim and rating validation', async () => {

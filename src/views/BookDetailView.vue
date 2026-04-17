@@ -14,8 +14,16 @@ const bookId = computed(() => route.params.id as string)
 const book = computed(() => bookStore.getBookById(bookId.value))
 
 const isEditing = ref(false)
-const editDraft = ref<Partial<BookDraft>>({})
+type BookEditDraft = Partial<BookDraft> & {
+  currentPage?: number
+  startDate?: string
+  endDate?: string
+}
+const editDraft = ref<BookEditDraft>({})
 const editError = ref('')
+const showPageEditor = ref(false)
+const currentPageDraft = ref(0)
+const currentPageError = ref('')
 
 const showLogForm = ref(false)
 const logError = ref('')
@@ -25,8 +33,11 @@ const reviewError = ref('')
 const newLog = ref({
   startPage: 1,
   endPage: 1,
+  date: '',
   content: '',
 })
+
+const toDateInputValue = (value?: string) => value ? value.slice(0, 10) : ''
 
 const selectedRating = ref<number | undefined>(undefined)
 const reviewDraft = ref('')
@@ -36,8 +47,10 @@ watch(book, currentBook => {
   newLog.value = {
     startPage: Math.min(Math.max(currentBook.currentPage || 1, 1), currentBook.totalPages),
     endPage: Math.min(Math.max(currentBook.currentPage || 1, 1), currentBook.totalPages),
+    date: toDateInputValue(new Date().toISOString()),
     content: '',
   }
+  currentPageDraft.value = currentBook.currentPage
   selectedRating.value = currentBook.rating
   reviewDraft.value = currentBook.review ?? ''
 }, { immediate: true })
@@ -75,8 +88,11 @@ const startEditing = () => {
     title: book.value.title,
     author: book.value.author,
     totalPages: book.value.totalPages,
+    currentPage: book.value.currentPage,
     coverUrl: book.value.coverUrl,
     status: book.value.status,
+    startDate: toDateInputValue(book.value.startDate),
+    endDate: toDateInputValue(book.value.endDate),
   }
   isEditing.value = true
   editError.value = ''
@@ -90,12 +106,42 @@ const cancelEditing = () => {
 const handleSaveEdit = () => {
   if (!book.value) return
 
-  const result = bookStore.updateBook(book.value.id, editDraft.value)
+  const result = bookStore.updateBook(book.value.id, {
+    title: editDraft.value.title,
+    author: editDraft.value.author,
+    totalPages: editDraft.value.totalPages,
+    currentPage: editDraft.value.currentPage,
+    coverUrl: editDraft.value.coverUrl,
+    status: editDraft.value.status,
+    startDate: editDraft.value.startDate,
+    endDate: editDraft.value.endDate,
+  })
   if (result.ok) {
     isEditing.value = false
   } else {
     editError.value = result.message
   }
+}
+
+const togglePageEditor = () => {
+  if (!book.value) return
+  currentPageDraft.value = book.value.currentPage
+  currentPageError.value = ''
+  showPageEditor.value = !showPageEditor.value
+}
+
+const handleCurrentPageSave = () => {
+  if (!book.value) return
+
+  currentPageError.value = ''
+  const result = bookStore.updateBook(book.value.id, { currentPage: currentPageDraft.value })
+
+  if (!result.ok) {
+    currentPageError.value = result.message
+    return
+  }
+
+  showPageEditor.value = false
 }
 
 const handleAddLog = () => {
@@ -113,6 +159,7 @@ const handleAddLog = () => {
   newLog.value = {
     startPage: Math.min(Math.max(book.value.currentPage || 1, 1), book.value.totalPages),
     endPage: Math.min(Math.max(book.value.currentPage || 1, 1), book.value.totalPages),
+    date: toDateInputValue(new Date().toISOString()),
     content: '',
   }
 }
@@ -226,6 +273,36 @@ const handleSaveReview = () => {
                     />
                   </label>
                 </div>
+                <div class="grid gap-3 sm:grid-cols-3">
+                  <label class="flex flex-col gap-1.5">
+                    <span class="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Current Page</span>
+                    <input
+                      v-model.number="editDraft.currentPage"
+                      type="number"
+                      min="0"
+                      :max="editDraft.totalPages"
+                      class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
+                    />
+                  </label>
+                  <label class="flex flex-col gap-1.5">
+                    <span class="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Start Date</span>
+                    <input
+                      v-model="editDraft.startDate"
+                      type="date"
+                      :max="toDateInputValue(new Date().toISOString())"
+                      class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
+                    />
+                  </label>
+                  <label class="flex flex-col gap-1.5">
+                    <span class="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">End Date</span>
+                    <input
+                      v-model="editDraft.endDate"
+                      type="date"
+                      :max="toDateInputValue(new Date().toISOString())"
+                      class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
+                    />
+                  </label>
+                </div>
               </div>
               <p v-if="editError" class="text-sm font-medium text-destructive">{{ editError }}</p>
             </div>
@@ -283,9 +360,49 @@ const handleSaveReview = () => {
 
         <div class="grid gap-4 sm:grid-cols-3">
           <div class="rounded-2xl bg-muted/70 p-4">
-            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Progress</p>
-            <p class="mt-2 text-2xl font-semibold">{{ progressPercentage }}%</p>
-            <p class="mt-1 text-sm text-muted-foreground">{{ book.currentPage }} / {{ book.totalPages }} pages</p>
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Progress</p>
+                <p class="mt-2 text-2xl font-semibold">{{ progressPercentage }}%</p>
+                <p class="mt-1 text-sm text-muted-foreground">{{ book.currentPage }} / {{ book.totalPages }} pages</p>
+              </div>
+              <button
+                type="button"
+                class="inline-flex h-8 items-center justify-center rounded-xl border border-border px-3 text-xs font-medium transition hover:bg-background"
+                @click="togglePageEditor"
+              >
+                {{ showPageEditor ? '닫기' : '페이지 수정' }}
+              </button>
+            </div>
+            <div v-if="showPageEditor" class="mt-4 space-y-3">
+              <label class="space-y-2 text-sm font-medium">
+                <span>Current Page</span>
+                <input
+                  v-model.number="currentPageDraft"
+                  type="number"
+                  min="0"
+                  :max="book.totalPages"
+                  class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
+                />
+              </label>
+              <p v-if="currentPageError" class="text-sm font-medium text-destructive">{{ currentPageError }}</p>
+              <div class="flex gap-2">
+                <button
+                  type="button"
+                  class="inline-flex h-10 items-center justify-center rounded-2xl border border-border px-4 text-sm font-medium transition hover:bg-background"
+                  @click="togglePageEditor"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  class="inline-flex h-10 items-center justify-center rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
+                  @click="handleCurrentPageSave"
+                >
+                  저장
+                </button>
+              </div>
+            </div>
           </div>
           <div class="rounded-2xl bg-muted/70 p-4">
             <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Started</p>
@@ -365,7 +482,7 @@ const handleSaveReview = () => {
           </div>
 
           <div v-if="showLogForm" class="mt-6 rounded-[24px] border border-border bg-background/60 p-4">
-            <div class="grid gap-4 sm:grid-cols-2">
+            <div class="grid gap-4 sm:grid-cols-3">
               <label class="space-y-2 text-sm font-medium">
                 <span>Start Page</span>
                 <input
@@ -382,6 +499,16 @@ const handleSaveReview = () => {
                   v-model.number="newLog.endPage"
                   type="number"
                   min="1"
+                  class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
+                />
+              </label>
+
+              <label class="space-y-2 text-sm font-medium">
+                <span>Log Date</span>
+                <input
+                  v-model="newLog.date"
+                  type="date"
+                  :max="toDateInputValue(new Date().toISOString())"
                   class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
                 />
               </label>

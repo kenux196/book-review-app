@@ -30,6 +30,13 @@ const sortOptions: { value: BookSortKey; label: string }[] = [
   { value: 'STATUS_ASC', label: 'Status' },
 ]
 
+const addStatusOptions: { value: BookStatus; label: string; description: string }[] = [
+  { value: 'TO_READ', label: 'To Read', description: '읽고 싶은 책으로 저장하고 페이지는 0부터 시작합니다.' },
+  { value: 'READING', label: 'Reading', description: '지금 읽는 책으로 저장하고 현재 읽은 페이지를 함께 기록합니다.' },
+  { value: 'READ', label: 'Read', description: '완독한 책으로 저장합니다. 저장 시 전체 페이지까지 자동 반영됩니다.' },
+  { value: 'STOPPED', label: 'Stopped', description: '중단한 책으로 저장하고 마지막으로 읽은 페이지를 남깁니다.' },
+]
+
 const statusOrder: Record<BookStatus, number> = {
   TO_READ: 0,
   READING: 1,
@@ -67,6 +74,36 @@ const filteredBooks = computed(() => {
       }
     })
 })
+
+const currentStatusOption = computed(() => {
+  return addStatusOptions.find(option => option.value === newBook.value.status) ?? addStatusOptions[0]
+})
+
+const shouldShowProgressField = computed(() => {
+  return newBook.value.status === 'READING' || newBook.value.status === 'STOPPED'
+})
+
+const progressFieldLabel = computed(() => {
+  return newBook.value.status === 'STOPPED' ? 'Last Page Reached' : 'Current Page'
+})
+
+const progressFieldDescription = computed(() => {
+  return newBook.value.status === 'STOPPED'
+    ? '중단하기 전 마지막으로 읽은 페이지를 입력하세요.'
+    : '현재 어디까지 읽었는지 입력하세요.'
+})
+
+const updateDraftStatus = (status: BookStatus) => {
+  newBook.value.status = status
+
+  if (status === 'TO_READ') {
+    newBook.value.currentPage = 0
+  }
+}
+
+const handleDraftStatusChange = (event: Event) => {
+  updateDraftStatus((event.target as HTMLSelectElement).value as BookStatus)
+}
 
 const resetForm = () => {
   newBook.value = createInitialDraft()
@@ -177,6 +214,28 @@ const getStatusLabel = (status: BookStatus) => {
         </label>
 
         <label class="space-y-2 text-sm font-medium">
+          <span>Initial Status</span>
+          <div class="relative">
+            <select
+              :value="newBook.status"
+              aria-label="Initial status"
+              class="h-11 w-full appearance-none rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
+              @change="handleDraftStatusChange"
+            >
+              <option
+                v-for="option in addStatusOptions"
+                :key="option.value"
+                :value="option.value"
+              >
+                {{ option.label }}
+              </option>
+            </select>
+            <ChevronDown class="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          </div>
+          <p class="text-xs leading-5 text-muted-foreground">{{ currentStatusOption?.description }}</p>
+        </label>
+
+        <label class="space-y-2 text-sm font-medium">
           <span>Cover URL</span>
           <input
             v-model="newBook.coverUrl"
@@ -185,6 +244,26 @@ const getStatusLabel = (status: BookStatus) => {
             class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
           />
         </label>
+
+        <label v-if="shouldShowProgressField" class="space-y-2 text-sm font-medium">
+          <span>{{ progressFieldLabel }}</span>
+          <input
+            v-model.number="newBook.currentPage"
+            type="number"
+            min="1"
+            :max="newBook.totalPages || undefined"
+            placeholder="Current Page"
+            class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
+          />
+          <p class="text-xs leading-5 text-muted-foreground">{{ progressFieldDescription }}</p>
+        </label>
+
+        <div
+          v-else-if="newBook.status === 'READ'"
+          class="rounded-2xl border border-emerald-200/70 bg-emerald-50/70 p-4 text-sm text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200"
+        >
+          저장하면 완독 상태로 추가되고 진행률은 <span class="font-semibold">100%</span>로 설정됩니다.
+        </div>
       </div>
 
       <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">

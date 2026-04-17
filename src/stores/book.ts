@@ -19,6 +19,51 @@ import { getBookRepository } from './bookRepositoryProvider'
 
 const STATUS_ORDER: BookStatus[] = ['TO_READ', 'READING', 'READ', 'STOPPED']
 
+const toIsoDateString = (value: unknown) => {
+  if (typeof value !== 'string' || !value) return undefined
+
+  const trimmed = value.trim()
+  if (!trimmed) return undefined
+
+  const candidate = /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? `${trimmed}T00:00:00.000Z` : trimmed
+  const parsed = new Date(candidate)
+
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString()
+}
+
+const getTodayIso = () => {
+  return new Date().toISOString().slice(0, 10)
+}
+
+const isFutureDate = (value: string) => value.slice(0, 10) > getTodayIso()
+
+const validateDateRange = (startDate?: string, endDate?: string) => {
+  if (startDate && isFutureDate(startDate)) {
+    return { ok: false as const, message: '시작일은 미래 날짜일 수 없습니다.' }
+  }
+
+  if (endDate && isFutureDate(endDate)) {
+    return { ok: false as const, message: '완료일은 미래 날짜일 수 없습니다.' }
+  }
+
+  if (startDate && endDate && startDate > endDate) {
+    return { ok: false as const, message: '시작일은 완료일보다 늦을 수 없습니다.' }
+  }
+
+  return { ok: true as const }
+}
+
+const applyProgressTransitions = (book: Book) => {
+  if (book.currentPage === book.totalPages && book.status !== 'READ') {
+    return withStatusTransitions(book, 'READ')
+  }
+
+  if (book.currentPage > 0 && book.status === 'TO_READ') {
+    return withStatusTransitions(book, 'READING')
+  }
+
+  return book
+}
 
 const withStatusTransitions = (book: Book, nextStatus: BookStatus) => {
   const now = new Date().toISOString()
@@ -100,6 +145,11 @@ export const useBookStore = defineStore('book', () => {
 
     const status = STATUS_ORDER.includes(draft.status) ? draft.status : 'TO_READ'
     const initialCurrentPage = clamp(Math.floor(Number(draft.currentPage ?? 0)) || 0, 0, totalPages)
+    const startDate = toIsoDateString(draft.startDate)
+    const endDate = toIsoDateString(draft.endDate)
+
+    const dateValidation = validateDateRange(startDate, endDate)
+    if (!dateValidation.ok) return dateValidation
 
     const tags = Array.isArray(draft.tags)
       ? draft.tags.map(t => t.trim()).filter(t => t.length > 0)
@@ -113,12 +163,15 @@ export const useBookStore = defineStore('book', () => {
       totalPages,
       currentPage: initialCurrentPage,
       status,
+      startDate,
+      endDate,
       tags,
       logs: [],
       createdAt: new Date().toISOString(),
     }
 
     nextBook = withStatusTransitions(nextBook, status)
+    nextBook = applyProgressTransitions(nextBook)
     books.value.push(nextBook)
 
     return { ok: true }
@@ -149,7 +202,12 @@ export const useBookStore = defineStore('book', () => {
     }
 
     const nextStatus = 'status' in updates && updates.status ? updates.status : target.status
+    const startDate = 'startDate' in updates ? toIsoDateString(updates.startDate) : target.startDate
+    const endDate = 'endDate' in updates ? toIsoDateString(updates.endDate) : target.endDate
     const index = books.value.findIndex(book => book.id === id)
+
+    const dateValidation = validateDateRange(startDate, endDate)
+    if (!dateValidation.ok) return dateValidation
 
     const tags = 'tags' in updates && Array.isArray(updates.tags)
       ? updates.tags.map(t => t.trim()).filter(t => t.length > 0)
@@ -162,11 +220,14 @@ export const useBookStore = defineStore('book', () => {
       coverUrl: 'coverUrl' in updates ? toTrimmedText(updates.coverUrl) : target.coverUrl,
       totalPages,
       currentPage,
+      startDate,
+      endDate,
       tags,
       status: STATUS_ORDER.includes(nextStatus) ? nextStatus : target.status,
     }
 
     nextBook = withStatusTransitions(nextBook, nextBook.status)
+    nextBook = applyProgressTransitions(nextBook)
     books.value[index] = nextBook
 
     return { ok: true }
@@ -188,9 +249,14 @@ export const useBookStore = defineStore('book', () => {
       return { ok: false, message: '종료 페이지는 전체 페이지 수를 넘을 수 없습니다.' }
     }
 
+    const logDate = toIsoDateString(draft.date) ?? new Date().toISOString()
+    if (isFutureDate(logDate)) {
+      return { ok: false, message: '독서 로그 날짜는 미래일 수 없습니다.' }
+    }
+
     const log: ReadingLog = {
       id: crypto.randomUUID(),
-      date: new Date().toISOString(),
+      date: logDate,
       startPage,
       endPage,
       content: toTrimmedText(draft.content),

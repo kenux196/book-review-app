@@ -71,11 +71,13 @@ describe('BookDetailView', () => {
 
     const toggleButton = wrapper.findAll('button').find(button => button.text() === 'Add Log')
     await toggleButton?.trigger('click')
-    const numberInputs = wrapper.findAll('input[type="number"]')
-    expect(numberInputs[0]).toBeDefined()
-    expect(numberInputs[1]).toBeDefined()
-    await numberInputs[0]!.setValue('50')
-    await numberInputs[1]!.setValue('10')
+    const logInputs = wrapper.findAll('input[type="number"]')
+    const startInput = logInputs[logInputs.length - 2]
+    const endInput = logInputs[logInputs.length - 1]
+    expect(startInput).toBeDefined()
+    expect(endInput).toBeDefined()
+    await startInput!.setValue('50')
+    await endInput!.setValue('10')
 
     const saveButton = wrapper.findAll('button').find(button => button.text() === 'Save Log')
     await saveButton?.trigger('click')
@@ -99,11 +101,13 @@ describe('BookDetailView', () => {
 
     const toggleButton = wrapper.findAll('button').find(button => button.text() === 'Add Log')
     await toggleButton?.trigger('click')
-    const numberInputs = wrapper.findAll('input[type="number"]')
-    expect(numberInputs[0]).toBeDefined()
-    expect(numberInputs[1]).toBeDefined()
-    await numberInputs[0]!.setValue('1')
-    await numberInputs[1]!.setValue('20')
+    const logInputs = wrapper.findAll('input[type="number"]')
+    const startInput = logInputs[logInputs.length - 2]
+    const endInput = logInputs[logInputs.length - 1]
+    expect(startInput).toBeDefined()
+    expect(endInput).toBeDefined()
+    await startInput!.setValue('1')
+    await endInput!.setValue('20')
     await wrapper.find('textarea[placeholder="What stood out today?"]').setValue('Solid opening')
 
     const saveButton = wrapper.findAll('button').find(button => button.text() === 'Save Log')
@@ -113,6 +117,67 @@ describe('BookDetailView', () => {
     expect(store.books[0]!.logs).toHaveLength(1)
     expect(store.books[0]!.currentPage).toBe(20)
     expect(wrapper.text()).toContain('Solid opening')
+  })
+
+  it('saves a reading log with a selected date', async () => {
+    const store = useBookStore()
+    store.addBook({ title: 'Book', author: 'Author', totalPages: 100, status: 'READING' })
+    const bookId = store.books[0]!.id
+
+    const router = createTestRouter()
+    await router.push(`/books/${bookId}`)
+    await router.isReady()
+
+    const wrapper = mount(BookDetailView, {
+      global: { plugins: [router] },
+    })
+
+    const toggleButton = wrapper.findAll('button').find(button => button.text() === 'Add Log')
+    await toggleButton?.trigger('click')
+
+    const dateInput = wrapper.find('input[type="date"]')
+    await dateInput.setValue('2026-04-05')
+
+    const logInputs = wrapper.findAll('input[type="number"]')
+    const startInput = logInputs[logInputs.length - 2]
+    const endInput = logInputs[logInputs.length - 1]
+    expect(startInput).toBeDefined()
+    expect(endInput).toBeDefined()
+    await startInput!.setValue('10')
+    await endInput!.setValue('30')
+
+    const saveButton = wrapper.findAll('button').find(button => button.text() === 'Save Log')
+    await saveButton?.trigger('click')
+
+    expect(store.books[0]!.logs).toHaveLength(1)
+    expect(store.books[0]!.logs[0]!.date.slice(0, 10)).toBe('2026-04-05')
+  })
+
+  it('updates current page without adding a reading log', async () => {
+    const store = useBookStore()
+    store.addBook({ title: 'Book', author: 'Author', totalPages: 100, status: 'TO_READ' })
+    const bookId = store.books[0]!.id
+
+    const router = createTestRouter()
+    await router.push(`/books/${bookId}`)
+    await router.isReady()
+
+    const wrapper = mount(BookDetailView, {
+      global: { plugins: [router] },
+    })
+
+    const openEditorButton = wrapper.findAll('button').find(button => button.text() === '페이지 수정')
+    await openEditorButton?.trigger('click')
+
+    const pageInput = wrapper.find('input[max="100"]')
+    await pageInput.setValue('35')
+
+    const saveButton = wrapper.findAll('button').find(button => button.text() === '저장')
+    await saveButton?.trigger('click')
+
+    expect(store.books[0]!.currentPage).toBe(35)
+    expect(store.books[0]!.logs).toHaveLength(0)
+    expect(store.books[0]!.status).toBe('READING')
   })
 
   it('saves a review and rating', async () => {
@@ -182,15 +247,25 @@ describe('BookDetailView', () => {
     // Check if inputs are visible
     const titleInput = wrapper.find('input[placeholder="Book Title"]')
     const authorInput = wrapper.find('input[placeholder="Author"]')
-    const pagesInput = wrapper.find('input[type="number"]')
+    const numberInputs = wrapper.findAll('input[type="number"]')
+    const pagesInput = numberInputs[0]
+    const currentPageInput = numberInputs[1]
+    const dateInputs = wrapper.findAll('input[type="date"]')
     
     expect(titleInput.exists()).toBe(true)
     expect(authorInput.exists()).toBe(true)
+    expect(currentPageInput).toBeDefined()
+    expect(dateInputs[0]).toBeDefined()
+    expect(dateInputs[1]).toBeDefined()
 
     // Modify values
     await titleInput.setValue('Updated Title')
     await authorInput.setValue('Updated Author')
-    await pagesInput.setValue('150')
+    expect(pagesInput).toBeDefined()
+    await pagesInput!.setValue('150')
+    await currentPageInput!.setValue('42')
+    await dateInputs[0]!.setValue('2026-03-01')
+    await dateInputs[1]!.setValue('2026-03-15')
 
     // Save changes
     const saveButton = wrapper.findAll('button').find(button => button.text() === 'Save')
@@ -200,6 +275,9 @@ describe('BookDetailView', () => {
     expect(store.books[0]!.title).toBe('Updated Title')
     expect(store.books[0]!.author).toBe('Updated Author')
     expect(store.books[0]!.totalPages).toBe(150)
+    expect(store.books[0]!.currentPage).toBe(42)
+    expect(store.books[0]!.startDate?.slice(0, 10)).toBe('2026-03-01')
+    expect(store.books[0]!.endDate?.slice(0, 10)).toBe('2026-03-15')
 
     // Verify UI switched back to display mode
     expect(wrapper.find('h1').text()).toBe('Updated Title')
