@@ -24,17 +24,17 @@ const createInitialDraft = (): BookDraft => ({
 const newBook = ref<BookDraft>(createInitialDraft())
 
 const sortOptions: { value: BookSortKey; label: string }[] = [
-  { value: 'CREATED_AT_DESC', label: 'Latest Added' },
-  { value: 'TITLE_ASC', label: 'Title A-Z' },
-  { value: 'PROGRESS_DESC', label: 'Highest Progress' },
-  { value: 'STATUS_ASC', label: 'Status' },
+  { value: 'CREATED_AT_DESC', label: '최근 추가 순' },
+  { value: 'TITLE_ASC', label: '제목 가나다순' },
+  { value: 'PROGRESS_DESC', label: '진행률 높은 순' },
+  { value: 'STATUS_ASC', label: '상태 순' },
 ]
 
 const addStatusOptions: { value: BookStatus; label: string; description: string }[] = [
-  { value: 'TO_READ', label: 'To Read', description: '읽고 싶은 책으로 저장하고 페이지는 0부터 시작합니다.' },
-  { value: 'READING', label: 'Reading', description: '지금 읽는 책으로 저장하고 현재 읽은 페이지를 함께 기록합니다.' },
-  { value: 'READ', label: 'Read', description: '완독한 책으로 저장합니다. 저장 시 전체 페이지까지 자동 반영됩니다.' },
-  { value: 'STOPPED', label: 'Stopped', description: '중단한 책으로 저장하고 마지막으로 읽은 페이지를 남깁니다.' },
+  { value: 'TO_READ', label: '읽을 책', description: '읽고 싶은 책으로 저장하고 페이지는 0부터 시작합니다.' },
+  { value: 'READING', label: '읽는 중', description: '지금 읽는 책으로 저장하고 현재 읽은 페이지를 함께 기록합니다.' },
+  { value: 'READ', label: '완독', description: '완독한 책으로 저장합니다. 저장 시 전체 페이지까지 자동 반영됩니다.' },
+  { value: 'STOPPED', label: '중단', description: '중단한 책으로 저장하고 마지막으로 읽은 페이지를 남깁니다.' },
 ]
 
 const statusOrder: Record<BookStatus, number> = {
@@ -84,7 +84,7 @@ const shouldShowProgressField = computed(() => {
 })
 
 const progressFieldLabel = computed(() => {
-  return newBook.value.status === 'STOPPED' ? 'Last Page Reached' : 'Current Page'
+  return newBook.value.status === 'STOPPED' ? '마지막으로 읽은 페이지' : '현재 페이지'
 })
 
 const progressFieldDescription = computed(() => {
@@ -138,13 +138,13 @@ const getStatusColor = (status: BookStatus) => {
 const getStatusLabel = (status: BookStatus) => {
   switch (status) {
     case 'TO_READ':
-      return 'To Read'
+      return '읽을 책'
     case 'READING':
-      return 'Reading'
+      return '읽는 중'
     case 'READ':
-      return 'Read'
+      return '완독'
     case 'STOPPED':
-      return 'Stopped'
+      return '중단'
   }
 }
 </script>
@@ -154,7 +154,7 @@ const getStatusLabel = (status: BookStatus) => {
     <section class="flex flex-col gap-5 rounded-[28px] border border-border/70 bg-card/80 p-6 shadow-sm shadow-slate-200/40 dark:shadow-black/20 lg:flex-row lg:items-end lg:justify-between">
       <div class="space-y-3">
         <span class="inline-flex w-fit items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-primary">
-          Library
+          내 서재
         </span>
         <div class="space-y-2">
           <h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">읽은 책, 읽는 책, 읽고 싶은 책을 한 번에 관리하세요.</h1>
@@ -170,14 +170,14 @@ const getStatusLabel = (status: BookStatus) => {
         @click="showAddForm = !showAddForm"
       >
         <Plus class="h-4 w-4" />
-        <span>{{ showAddForm ? 'Close Form' : 'Add Book' }}</span>
+        <span>{{ showAddForm ? '폼 닫기' : '책 추가' }}</span>
       </button>
     </section>
 
     <section v-if="showAddForm" class="rounded-[28px] border border-border/70 bg-card/90 p-6 shadow-sm">
       <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 class="text-xl font-semibold">Add New Book</h2>
+          <h2 class="text-xl font-semibold">새 책 추가</h2>
           <p class="text-sm text-muted-foreground">제목, 저자, 페이지 수를 기준으로 로컬 서재에 추가합니다.</p>
         </div>
         <p v-if="addError" class="text-sm font-medium text-destructive">{{ addError }}</p>
@@ -185,40 +185,40 @@ const getStatusLabel = (status: BookStatus) => {
 
       <div class="mt-6 grid gap-4 sm:grid-cols-2">
         <label class="space-y-2 text-sm font-medium">
-          <span>Title</span>
+          <span>제목</span>
           <input
             v-model="newBook.title"
-            placeholder="Book Title"
+            placeholder="책 제목"
             class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
           />
         </label>
 
         <label class="space-y-2 text-sm font-medium">
-          <span>Author</span>
+          <span>저자</span>
           <input
             v-model="newBook.author"
-            placeholder="Author Name"
+            placeholder="저자명"
             class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
           />
         </label>
 
         <label class="space-y-2 text-sm font-medium">
-          <span>Total Pages</span>
+          <span>전체 페이지</span>
           <input
             v-model.number="newBook.totalPages"
             type="number"
             min="1"
-            placeholder="Total Pages"
+            placeholder="전체 페이지 수"
             class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
           />
         </label>
 
         <label class="space-y-2 text-sm font-medium">
-          <span>Initial Status</span>
+          <span>초기 상태</span>
           <div class="relative">
             <select
               :value="newBook.status"
-              aria-label="Initial status"
+              aria-label="초기 상태"
               class="h-11 w-full appearance-none rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
               @change="handleDraftStatusChange"
             >
@@ -236,7 +236,7 @@ const getStatusLabel = (status: BookStatus) => {
         </label>
 
         <label class="space-y-2 text-sm font-medium">
-          <span>Cover URL</span>
+          <span>표지 URL</span>
           <input
             v-model="newBook.coverUrl"
             type="url"
@@ -252,7 +252,7 @@ const getStatusLabel = (status: BookStatus) => {
             type="number"
             min="1"
             :max="newBook.totalPages || undefined"
-            placeholder="Current Page"
+            placeholder="현재 페이지"
             class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
           />
           <p class="text-xs leading-5 text-muted-foreground">{{ progressFieldDescription }}</p>
@@ -272,14 +272,14 @@ const getStatusLabel = (status: BookStatus) => {
           class="inline-flex h-11 items-center justify-center rounded-2xl border border-border px-4 text-sm font-medium transition hover:bg-muted"
           @click="showAddForm = false; resetForm()"
         >
-          Cancel
+          취소
         </button>
         <button
           type="button"
           class="inline-flex h-11 items-center justify-center rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-95"
           @click="handleAddBook"
         >
-          Save Book
+          저장
         </button>
       </div>
     </section>
@@ -289,7 +289,7 @@ const getStatusLabel = (status: BookStatus) => {
         <Search class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input
           v-model="searchQuery"
-          placeholder="Search books..."
+          placeholder="책 제목, 저자, 태그 검색"
           class="h-11 w-full rounded-2xl border border-input bg-background pl-11 pr-4 text-sm outline-none transition focus:border-primary"
         />
       </label>
@@ -299,11 +299,11 @@ const getStatusLabel = (status: BookStatus) => {
           v-model="statusFilter"
           class="h-11 w-full appearance-none rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
         >
-          <option value="ALL">All Status</option>
-          <option value="TO_READ">To Read</option>
-          <option value="READING">Reading</option>
-          <option value="READ">Read</option>
-          <option value="STOPPED">Stopped</option>
+          <option value="ALL">모든 상태</option>
+          <option value="TO_READ">읽을 책</option>
+          <option value="READING">읽는 중</option>
+          <option value="READ">완독</option>
+          <option value="STOPPED">중단</option>
         </select>
         <ChevronDown class="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
       </label>
@@ -311,7 +311,7 @@ const getStatusLabel = (status: BookStatus) => {
       <label class="relative">
         <select
           v-model="sortKey"
-          aria-label="Sort books"
+          aria-label="정렬 기준"
           class="h-11 w-full appearance-none rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
         >
           <option v-for="option in sortOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
@@ -337,7 +337,7 @@ const getStatusLabel = (status: BookStatus) => {
             />
             <div v-else class="flex h-full w-full flex-col items-center justify-center gap-3 bg-[linear-gradient(180deg,rgba(148,163,184,0.18),transparent)] text-muted-foreground">
               <BookIcon class="h-10 w-10" />
-              <span class="text-[11px] font-semibold uppercase tracking-[0.24em]">No Cover</span>
+              <span class="text-[11px] font-semibold uppercase tracking-[0.24em]">표지 없음</span>
             </div>
           </div>
 
@@ -380,8 +380,8 @@ const getStatusLabel = (status: BookStatus) => {
 
             <div class="mt-auto space-y-2">
               <div class="flex items-center justify-between text-xs text-muted-foreground">
-                <span>{{ book.currentPage }} / {{ book.totalPages }} pages</span>
-                <span>{{ book.logs.length }} logs</span>
+                <span>{{ book.currentPage }} / {{ book.totalPages }} 페이지</span>
+                <span>로그 {{ book.logs.length }}개</span>
               </div>
               <div class="h-2 rounded-full bg-muted">
                 <div
@@ -400,7 +400,7 @@ const getStatusLabel = (status: BookStatus) => {
         <div class="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
           <BookIcon class="h-6 w-6 text-muted-foreground" />
         </div>
-        <h2 class="text-xl font-semibold">No books found.</h2>
+        <h2 class="text-xl font-semibold">조건에 맞는 책이 없습니다.</h2>
         <p class="text-sm leading-6 text-muted-foreground">
           검색어, 상태 필터, 정렬 조건에 맞는 책이 없습니다. 필터를 바꾸거나 새 책을 추가해 보세요.
         </p>

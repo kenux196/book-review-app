@@ -57,26 +57,26 @@ test.beforeEach(async ({ page }) => {
 test('adds a new book from the library form', async ({ page }) => {
   await page.goto('/books')
 
-  await page.getByRole('button', { name: 'Add Book' }).click()
-  await page.getByPlaceholder('Book Title').fill('Domain-Driven Design')
-  await page.getByPlaceholder('Author Name').fill('Eric Evans')
-  await page.getByPlaceholder('Total Pages').fill('560')
-  await page.getByLabel('Initial status').selectOption('READING')
-  await page.getByPlaceholder('Current Page').fill('128')
+  await page.getByRole('button', { name: '책 추가' }).click()
+  await page.getByRole('textbox', { name: '제목' }).fill('Domain-Driven Design')
+  await page.getByRole('textbox', { name: '저자' }).fill('Eric Evans')
+  await page.getByRole('spinbutton', { name: '전체 페이지' }).fill('560')
+  await page.getByLabel('초기 상태').selectOption('READING')
+  await page.getByPlaceholder('현재 페이지').fill('128')
   await page.getByPlaceholder('https://example.com/cover.jpg').fill('https://example.com/ddd.jpg')
-  await page.getByRole('button', { name: 'Save Book' }).click()
+  await page.getByRole('button', { name: '저장' }).click()
 
   await expect(page.getByText('Domain-Driven Design')).toBeVisible()
   await expect(page.getByText('Eric Evans')).toBeVisible()
   const newBookCard = page.getByRole('link', { name: /Domain-Driven Design/ })
-  await expect(newBookCard.getByText('Reading')).toBeVisible()
+  await expect(newBookCard.getByText('읽는 중')).toBeVisible()
   await expect(newBookCard.getByText('23%')).toBeVisible()
 })
 
 test('filters and sorts books in the library', async ({ page }) => {
   await page.goto('/books')
 
-  await page.getByPlaceholder('Search books...').fill('Martin')
+  await page.getByPlaceholder('책 제목, 저자, 태그 검색').fill('Martin')
   await page.locator('select').nth(0).selectOption('READING')
   await page.getByLabel('Sort books').selectOption('TITLE_ASC')
 
@@ -93,14 +93,14 @@ test('saves review, adds reading log, and persists dark mode', async ({ page }) 
   await page.getByRole('button', { name: 'Save review' }).click()
   await expect(page.getByText('리뷰와 별점을 저장했습니다.')).toBeVisible()
 
-  await page.getByRole('button', { name: 'Add Log' }).click()
+  await page.getByRole('button', { name: '로그 추가' }).click()
   await page.locator('input[type="date"]').fill('2026-02-14')
   await page.locator('input[type="number"]').nth(0).fill('211')
   await page.locator('input[type="number"]').nth(1).fill('240')
-  await page.getByPlaceholder('What stood out today?').fill('The chapter on long methods was especially clear.')
-  await page.getByRole('button', { name: 'Save Log' }).click()
+  await page.getByPlaceholder('오늘 인상 깊었던 내용을 남겨보세요.').fill('The chapter on long methods was especially clear.')
+  await page.getByRole('button', { name: '저장' }).click()
   await expect(page.getByText('The chapter on long methods was especially clear.')).toBeVisible()
-  await expect(page.getByText('Feb 14, 2026')).toBeVisible()
+  await expect(page.getByText('2026. 2. 14.')).toBeVisible()
 
   await page.getByRole('button', { name: '라이트 모드 켜짐' }).click()
   await expect(page.locator('html')).toHaveClass(/dark/)
@@ -116,9 +116,11 @@ test('saves review, adds reading log, and persists dark mode', async ({ page }) 
 test('deletes a book and redirects to library', async ({ page }) => {
   await page.goto('/books/book-3')
 
-  page.on('dialog', dialog => dialog.accept())
   await page.getByRole('button', { name: 'Delete book' }).click()
+  await page.getByRole('button', { name: 'Confirm delete' }).click()
 
+  await expect(page.getByText('삭제 취소')).toBeVisible()
+  await page.getByRole('button', { name: '서재로 이동' }).click()
   await expect(page).toHaveURL('/books')
   await expect(page.getByText('Atomic Habits')).not.toBeVisible()
 })
@@ -140,7 +142,7 @@ test('tags are searchable in the library', async ({ page }) => {
   await page.getByPlaceholder('태그 입력 후 Enter').press('Enter')
 
   await page.goto('/books')
-  await page.getByPlaceholder('Search books...').fill('개발')
+  await page.getByPlaceholder('책 제목, 저자, 태그 검색').fill('개발')
   await expect(page.getByText('Clean Code')).toBeVisible()
   await expect(page.getByText('Refactoring')).not.toBeVisible()
 })
@@ -148,8 +150,8 @@ test('tags are searchable in the library', async ({ page }) => {
 test('shows error when adding book with empty title', async ({ page }) => {
   await page.goto('/books')
 
-  await page.getByRole('button', { name: 'Add Book' }).click()
-  await page.getByRole('button', { name: 'Save Book' }).click()
+  await page.getByRole('button', { name: '책 추가' }).click()
+  await page.getByRole('button', { name: '저장' }).click()
 
   await expect(page.getByText('책 제목을 입력해 주세요.')).toBeVisible()
 })
@@ -157,10 +159,10 @@ test('shows error when adding book with empty title', async ({ page }) => {
 test('shows error for reading log exceeding total pages', async ({ page }) => {
   await page.goto('/books/book-2')
 
-  await page.getByRole('button', { name: 'Add Log' }).click()
+  await page.getByRole('button', { name: '로그 추가' }).click()
   await page.locator('input[type="number"]').nth(0).fill('400')
   await page.locator('input[type="number"]').nth(1).fill('500')
-  await page.getByRole('button', { name: 'Save Log' }).click()
+  await page.getByRole('button', { name: '저장' }).click()
 
   await expect(page.getByText('종료 페이지는 전체 페이지 수를 넘을 수 없습니다.')).toBeVisible()
 })
@@ -168,11 +170,11 @@ test('shows error for reading log exceeding total pages', async ({ page }) => {
 test('persists new book after page reload', async ({ page }) => {
   await page.goto('/books')
 
-  await page.getByRole('button', { name: 'Add Book' }).click()
-  await page.getByPlaceholder('Book Title').fill('The Pragmatic Programmer')
-  await page.getByPlaceholder('Author Name').fill('David Thomas')
-  await page.getByPlaceholder('Total Pages').fill('352')
-  await page.getByRole('button', { name: 'Save Book' }).click()
+  await page.getByRole('button', { name: '책 추가' }).click()
+  await page.getByPlaceholder('책 제목').fill('The Pragmatic Programmer')
+  await page.getByPlaceholder('저자명').fill('David Thomas')
+  await page.getByPlaceholder('전체 페이지 수').fill('352')
+  await page.getByRole('button', { name: '저장' }).click()
   await expect(page.getByText('The Pragmatic Programmer')).toBeVisible()
 
   // Wait for async IndexedDB save to complete before reload
@@ -184,7 +186,7 @@ test('persists new book after page reload', async ({ page }) => {
 test('dashboard shows currently reading book', async ({ page }) => {
   await page.goto('/')
 
-  const readingNowCard = page.locator('article').filter({ hasText: 'Reading Now' })
+  const readingNowCard = page.locator('article').filter({ hasText: '지금 읽는 책' })
   await expect(readingNowCard.getByText('1')).toBeVisible()
   await expect(page.getByText('Refactoring')).toBeVisible()
 })
@@ -202,25 +204,25 @@ test('edits book metadata and persists after reload', async ({ page }) => {
   await page.goto('/books/book-2')
 
   await page.getByRole('button', { name: 'Edit book' }).click()
-  await page.getByPlaceholder('Book Title').fill('Refactoring (Updated)')
-  await page.getByPlaceholder('Author').fill('Martin Fowler (2nd)')
+  await page.getByPlaceholder('책 제목').fill('Refactoring (Updated)')
+  await page.getByPlaceholder('저자').fill('Martin Fowler (2nd)')
   await page.locator('input[type="number"]').nth(1).fill('123')
   await page.locator('input[type="date"]').nth(0).fill('2026-01-15')
   await page.locator('input[type="date"]').nth(1).fill('2026-02-20')
-  await page.getByRole('button', { name: 'Save', exact: true }).click()
+  await page.getByRole('button', { name: '저장', exact: true }).click()
 
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Refactoring (Updated)')
   await expect(page.getByText('Martin Fowler (2nd)')).toBeVisible()
-  await expect(page.getByText('123 / 418 pages')).toBeVisible()
-  await expect(page.getByText('Jan 15, 2026')).toBeVisible()
-  await expect(page.getByText('Feb 20, 2026')).toBeVisible()
+  await expect(page.getByText('123 / 418 페이지')).toBeVisible()
+  await expect(page.getByText('2026. 1. 15.')).toBeVisible()
+  await expect(page.getByText('2026. 2. 20.')).toBeVisible()
 
   await page.waitForTimeout(300)
   await page.reload()
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Refactoring (Updated)')
-  await expect(page.getByText('123 / 418 pages')).toBeVisible()
-  await expect(page.getByText('Jan 15, 2026')).toBeVisible()
-  await expect(page.getByText('Feb 20, 2026')).toBeVisible()
+  await expect(page.getByText('123 / 418 페이지')).toBeVisible()
+  await expect(page.getByText('2026. 1. 15.')).toBeVisible()
+  await expect(page.getByText('2026. 2. 20.')).toBeVisible()
 })
 
 test('updates current page directly without creating a log', async ({ page }) => {
@@ -230,11 +232,11 @@ test('updates current page directly without creating a log', async ({ page }) =>
   await page.locator('input[max="320"]').fill('55')
   await page.getByRole('button', { name: '저장' }).click()
 
-  await expect(page.getByText('55 / 320 pages')).toBeVisible()
-  await expect(page.getByText('No reading logs yet.')).toBeVisible()
+  await expect(page.getByText('55 / 320 페이지')).toBeVisible()
+  await expect(page.getByText('아직 기록된 독서 로그가 없습니다.')).toBeVisible()
 
   await page.waitForTimeout(300)
   await page.reload()
-  await expect(page.getByText('55 / 320 pages')).toBeVisible()
+  await expect(page.getByText('55 / 320 페이지')).toBeVisible()
   await expect(page.locator('select').first()).toHaveValue('READING')
 })

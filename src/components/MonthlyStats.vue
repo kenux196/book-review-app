@@ -13,7 +13,7 @@ const MONTHS = 12
 const months = computed(() =>
   Array.from({ length: MONTHS }, (_, i) => {
     const date = subMonths(new Date(), MONTHS - 1 - i)
-    return { date, key: format(date, 'yyyy-MM'), label: format(date, 'MMM') }
+    return { date, key: format(date, 'yyyy-MM'), label: format(date, 'M월') }
   }),
 )
 
@@ -67,7 +67,7 @@ const totalBooksThisYear = computed(() =>
   <div class="rounded-[28px] border border-border/70 bg-card/90 p-6 shadow-sm">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <h2 class="text-xl font-semibold">Monthly Stats</h2>
+        <h2 class="text-xl font-semibold">월간 통계</h2>
         <p class="text-sm text-muted-foreground">최근 12개월 독서 현황</p>
       </div>
 
@@ -78,14 +78,14 @@ const totalBooksThisYear = computed(() =>
           :class="['h-8 rounded-xl px-3 font-medium transition', activeMetric === 'pages' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground']"
           @click="activeMetric = 'pages'"
         >
-          Pages
+          페이지
         </button>
         <button
           type="button"
           :class="['h-8 rounded-xl px-3 font-medium transition', activeMetric === 'books' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground']"
           @click="activeMetric = 'books'"
         >
-          Books
+          권수
         </button>
       </div>
     </div>

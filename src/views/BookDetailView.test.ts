@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import BookDetailView from './BookDetailView.vue'
@@ -15,10 +15,15 @@ const createTestRouter = () => createRouter({
 
 describe('BookDetailView', () => {
   beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-04-17T09:00:00.000Z'))
     setupLocalStorageMock()
     clearLocalStorage()
     setupTestPinia()
-    vi.stubGlobal('confirm', vi.fn(() => true))
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('renders a missing-book state', async () => {
@@ -30,8 +35,8 @@ describe('BookDetailView', () => {
       global: { plugins: [router] },
     })
 
-    expect(wrapper.text()).toContain('Book not found.')
-    expect(wrapper.text()).toContain('Go to Library')
+    expect(wrapper.text()).toContain('책을 찾을 수 없습니다.')
+    expect(wrapper.text()).toContain('서재로 이동')
   })
 
   it('updates book status from the select input', async () => {
@@ -69,7 +74,7 @@ describe('BookDetailView', () => {
       global: { plugins: [router] },
     })
 
-    const toggleButton = wrapper.findAll('button').find(button => button.text() === 'Add Log')
+    const toggleButton = wrapper.findAll('button').find(button => button.text() === '로그 추가')
     await toggleButton?.trigger('click')
     const logInputs = wrapper.findAll('input[type="number"]')
     const startInput = logInputs[logInputs.length - 2]
@@ -79,7 +84,7 @@ describe('BookDetailView', () => {
     await startInput!.setValue('50')
     await endInput!.setValue('10')
 
-    const saveButton = wrapper.findAll('button').find(button => button.text() === 'Save Log')
+    const saveButton = wrapper.findAll('button').find(button => button.text() === '저장')
     await saveButton?.trigger('click')
 
     expect(wrapper.text()).toContain('종료 페이지는 시작 페이지보다 같거나 커야 합니다.')
@@ -99,7 +104,7 @@ describe('BookDetailView', () => {
       global: { plugins: [router] },
     })
 
-    const toggleButton = wrapper.findAll('button').find(button => button.text() === 'Add Log')
+    const toggleButton = wrapper.findAll('button').find(button => button.text() === '로그 추가')
     await toggleButton?.trigger('click')
     const logInputs = wrapper.findAll('input[type="number"]')
     const startInput = logInputs[logInputs.length - 2]
@@ -108,9 +113,9 @@ describe('BookDetailView', () => {
     expect(endInput).toBeDefined()
     await startInput!.setValue('1')
     await endInput!.setValue('20')
-    await wrapper.find('textarea[placeholder="What stood out today?"]').setValue('Solid opening')
+    await wrapper.find('textarea[placeholder="오늘 인상 깊었던 내용을 남겨보세요."]').setValue('Solid opening')
 
-    const saveButton = wrapper.findAll('button').find(button => button.text() === 'Save Log')
+    const saveButton = wrapper.findAll('button').find(button => button.text() === '저장')
     await saveButton?.trigger('click')
 
     expect(store.books[0]).toBeDefined()
@@ -132,7 +137,7 @@ describe('BookDetailView', () => {
       global: { plugins: [router] },
     })
 
-    const toggleButton = wrapper.findAll('button').find(button => button.text() === 'Add Log')
+    const toggleButton = wrapper.findAll('button').find(button => button.text() === '로그 추가')
     await toggleButton?.trigger('click')
 
     const dateInput = wrapper.find('input[type="date"]')
@@ -146,7 +151,7 @@ describe('BookDetailView', () => {
     await startInput!.setValue('10')
     await endInput!.setValue('30')
 
-    const saveButton = wrapper.findAll('button').find(button => button.text() === 'Save Log')
+    const saveButton = wrapper.findAll('button').find(button => button.text() === '저장')
     await saveButton?.trigger('click')
 
     expect(store.books[0]!.logs).toHaveLength(1)
@@ -207,7 +212,7 @@ describe('BookDetailView', () => {
     expect(wrapper.text()).toContain('리뷰와 별점을 저장했습니다.')
   })
 
-  it('deletes a book and navigates back to library', async () => {
+  it('shows an in-app delete confirmation and restores the book when undo is clicked', async () => {
     const store = useBookStore()
     store.addBook({ title: 'Book', author: 'Author', totalPages: 100, status: 'TO_READ' })
     expect(store.books[0]).toBeDefined()
@@ -222,10 +227,46 @@ describe('BookDetailView', () => {
     })
 
     await wrapper.find('button[aria-label="Delete book"]').trigger('click')
+    expect(wrapper.text()).toContain('이 책을 삭제할까요?')
+    expect(store.books).toHaveLength(1)
+
+    await wrapper.find('button[aria-label="Confirm delete"]').trigger('click')
     await flushPromises()
 
     expect(store.books).toHaveLength(0)
-    expect(router.currentRoute.value.fullPath).toBe('/books')
+    expect(wrapper.text()).toContain('삭제했습니다.')
+    expect(wrapper.find('button[aria-label="Undo delete"]').exists()).toBe(true)
+    expect(router.currentRoute.value.fullPath).toBe(`/books/${bookId}`)
+
+    await wrapper.find('button[aria-label="Undo delete"]').trigger('click')
+    await flushPromises()
+
+    expect(store.books).toHaveLength(1)
+    expect(wrapper.find('h1').text()).toBe('Book')
+  })
+
+  it('falls back to missing-book state after the undo window expires', async () => {
+    const store = useBookStore()
+    store.addBook({ title: 'Book', author: 'Author', totalPages: 100, status: 'TO_READ' })
+    const bookId = store.books[0]!.id
+
+    const router = createTestRouter()
+    await router.push(`/books/${bookId}`)
+    await router.isReady()
+
+    const wrapper = mount(BookDetailView, {
+      global: { plugins: [router] },
+    })
+
+    await wrapper.find('button[aria-label="Delete book"]').trigger('click')
+    await wrapper.find('button[aria-label="Confirm delete"]').trigger('click')
+    await flushPromises()
+
+    vi.advanceTimersByTime(5000)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('책을 찾을 수 없습니다.')
+    expect(wrapper.find('button[aria-label="Undo delete"]').exists()).toBe(false)
   })
 
   it('edits book details and saves changes', async () => {
@@ -245,8 +286,8 @@ describe('BookDetailView', () => {
     await wrapper.find('button[aria-label="Edit book"]').trigger('click')
     
     // Check if inputs are visible
-    const titleInput = wrapper.find('input[placeholder="Book Title"]')
-    const authorInput = wrapper.find('input[placeholder="Author"]')
+    const titleInput = wrapper.find('input[placeholder="책 제목"]')
+    const authorInput = wrapper.find('input[placeholder="저자"]')
     const numberInputs = wrapper.findAll('input[type="number"]')
     const pagesInput = numberInputs[0]
     const currentPageInput = numberInputs[1]
@@ -268,7 +309,7 @@ describe('BookDetailView', () => {
     await dateInputs[1]!.setValue('2026-03-15')
 
     // Save changes
-    const saveButton = wrapper.findAll('button').find(button => button.text() === 'Save')
+    const saveButton = wrapper.findAll('button').find(button => button.text() === '저장')
     await saveButton?.trigger('click')
 
     // Verify store update
@@ -282,6 +323,6 @@ describe('BookDetailView', () => {
     // Verify UI switched back to display mode
     expect(wrapper.find('h1').text()).toBe('Updated Title')
     expect(wrapper.text()).toContain('Updated Author')
-    expect(wrapper.find('input[placeholder="Book Title"]').exists()).toBe(false)
+    expect(wrapper.find('input[placeholder="책 제목"]').exists()).toBe(false)
   })
 })

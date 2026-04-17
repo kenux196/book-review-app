@@ -30,8 +30,8 @@ describe('DashboardView', () => {
       global: { plugins: [router] },
     })
 
-    expect(wrapper.text()).toContain('No books currently in progress.')
-    expect(wrapper.text()).toContain('Add or Start a Book')
+    expect(wrapper.text()).toContain('지금 읽는 책이 없습니다.')
+    expect(wrapper.text()).toContain('책 추가하거나 시작하기')
   })
 
   it('shows aggregate stats and reading cards', async () => {
@@ -47,10 +47,10 @@ describe('DashboardView', () => {
       global: { plugins: [router] },
     })
 
-    expect(wrapper.text()).toContain('Reading Now')
-    expect(wrapper.text()).toContain('Books Read')
+    expect(wrapper.text()).toContain('지금 읽는 책')
+    expect(wrapper.text()).toContain('완독한 책')
     expect(wrapper.text()).toContain('350')
     expect(wrapper.text()).toContain('Reading Book')
-    expect(wrapper.text()).toContain('150 / 300 pages')
+    expect(wrapper.text()).toContain('150 / 300 페이지')
   })
 })

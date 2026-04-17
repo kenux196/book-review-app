@@ -30,6 +30,8 @@ describe('useBookStore', () => {
   let repo: InMemoryBookRepository
 
   beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-04-17T09:00:00.000Z'))
     repo = new InMemoryBookRepository()
     setBookRepositoryForTests(repo)
     setupTestPinia()
@@ -37,6 +39,7 @@ describe('useBookStore', () => {
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     setBookRepositoryForTests()
   })
 
@@ -242,14 +245,36 @@ describe('useBookStore', () => {
     expect(document.documentElement.classList.contains('dark')).toBe(true)
   })
 
-  it('deletes books safely', async () => {
+  it('deletes books safely and allows undo within the grace period', async () => {
+    const store = useBookStore()
+    await store.initialize()
+
+    store.addBook({ title: 'Book', author: 'Author', totalPages: 100, status: 'TO_READ' })
+    const deletedBook = getFirstBook(store)
+
+    expect(store.deleteBook(deletedBook.id)).toEqual({ ok: true })
+    expect(store.books).toHaveLength(0)
+    expect(store.recentlyDeletedBook?.id).toBe(deletedBook.id)
+
+    expect(store.undoDeleteBook()).toEqual({ ok: true })
+    expect(store.books).toHaveLength(1)
+    expect(store.books[0]!.id).toBe(deletedBook.id)
+    expect(store.recentlyDeletedBook).toBeUndefined()
+  })
+
+  it('expires the delete undo window after five seconds', async () => {
     const store = useBookStore()
     await store.initialize()
 
     store.addBook({ title: 'Book', author: 'Author', totalPages: 100, status: 'TO_READ' })
 
     expect(store.deleteBook(getFirstBook(store).id)).toEqual({ ok: true })
-    expect(store.books).toHaveLength(0)
+    expect(store.recentlyDeletedBook).toBeDefined()
+
+    vi.advanceTimersByTime(5000)
+
+    expect(store.recentlyDeletedBook).toBeUndefined()
+    expect(store.undoDeleteBook()).toEqual({ ok: false, message: '복구할 삭제 항목이 없습니다.' })
   })
 
   it('loads theme from repository on initialize', async () => {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, BookOpen, Calendar, CheckCircle2, ChevronDown, Pencil, Star, Trash2, X } from 'lucide-vue-next'
 import { format } from 'date-fns'
@@ -12,6 +12,10 @@ const bookStore = useBookStore()
 
 const bookId = computed(() => route.params.id as string)
 const book = computed(() => bookStore.getBookById(bookId.value))
+const deletedBook = computed(() => {
+  const candidate = bookStore.recentlyDeletedBook
+  return candidate?.id === bookId.value ? candidate : undefined
+})
 
 const isEditing = ref(false)
 type BookEditDraft = Partial<BookDraft> & {
@@ -24,6 +28,9 @@ const editError = ref('')
 const showPageEditor = ref(false)
 const currentPageDraft = ref(0)
 const currentPageError = ref('')
+const showDeleteConfirm = ref(false)
+const undoCountdownSeconds = ref(0)
+let undoCountdownTimer: ReturnType<typeof setInterval> | null = null
 
 const showLogForm = ref(false)
 const logError = ref('')
@@ -44,6 +51,7 @@ const reviewDraft = ref('')
 
 watch(book, currentBook => {
   if (!currentBook) return
+  showDeleteConfirm.value = false
   newLog.value = {
     startPage: Math.min(Math.max(currentBook.currentPage || 1, 1), currentBook.totalPages),
     endPage: Math.min(Math.max(currentBook.currentPage || 1, 1), currentBook.totalPages),
@@ -55,20 +63,66 @@ watch(book, currentBook => {
   reviewDraft.value = currentBook.review ?? ''
 }, { immediate: true })
 
+const stopUndoCountdown = () => {
+  if (!undoCountdownTimer) return
+  clearInterval(undoCountdownTimer)
+  undoCountdownTimer = null
+}
+
+const syncUndoCountdown = () => {
+  if (!deletedBook.value || !bookStore.deleteUndoExpiresAt) {
+    undoCountdownSeconds.value = 0
+    stopUndoCountdown()
+    return
+  }
+
+  const updateCountdown = () => {
+    if (!bookStore.deleteUndoExpiresAt) {
+      undoCountdownSeconds.value = 0
+      stopUndoCountdown()
+      return
+    }
+
+    const remainingMs = Math.max(bookStore.deleteUndoExpiresAt - Date.now(), 0)
+    undoCountdownSeconds.value = Math.ceil(remainingMs / 1000)
+
+    if (remainingMs === 0) {
+      stopUndoCountdown()
+    }
+  }
+
+  updateCountdown()
+
+  if (undoCountdownTimer) return
+  undoCountdownTimer = setInterval(updateCountdown, 250)
+}
+
+watch(
+  () => [deletedBook.value?.id, bookStore.deleteUndoExpiresAt] as const,
+  () => {
+    syncUndoCountdown()
+  },
+  { immediate: true },
+)
+
+onBeforeUnmount(() => {
+  stopUndoCountdown()
+})
+
 const progressPercentage = computed(() => {
   if (!book.value || book.value.totalPages <= 0) return 0
   return Math.round((book.value.currentPage / book.value.totalPages) * 100)
 })
 
 const statusOptions: { value: BookStatus; label: string }[] = [
-  { value: 'TO_READ', label: 'To Read' },
-  { value: 'READING', label: 'Reading' },
-  { value: 'READ', label: 'Read' },
-  { value: 'STOPPED', label: 'Stopped' },
+  { value: 'TO_READ', label: '읽을 책' },
+  { value: 'READING', label: '읽는 중' },
+  { value: 'READ', label: '완독' },
+  { value: 'STOPPED', label: '중단' },
 ]
 
 const formatDate = (value?: string) => {
-  return value ? format(new Date(value), 'MMM d, yyyy') : '-'
+  return value ? format(new Date(value), 'yyyy. M. d.') : '-'
 }
 
 const handleStatusChange = (event: Event) => {
@@ -165,11 +219,26 @@ const handleAddLog = () => {
 }
 
 const handleDelete = () => {
-  if (!book.value || !window.confirm('Are you sure you want to delete this book?')) return
+  showDeleteConfirm.value = true
+}
+
+const cancelDelete = () => {
+  showDeleteConfirm.value = false
+}
+
+const confirmDelete = () => {
+  if (!book.value) return
 
   const result = bookStore.deleteBook(book.value.id)
   if (result.ok) {
-    router.push('/books')
+    showDeleteConfirm.value = false
+  }
+}
+
+const handleUndoDelete = () => {
+  const result = bookStore.undoDeleteBook()
+  if (result.ok) {
+    showDeleteConfirm.value = false
   }
 }
 
@@ -223,7 +292,7 @@ const handleSaveReview = () => {
         />
         <div v-else class="flex aspect-[3/4] flex-col items-center justify-center gap-4 bg-[linear-gradient(180deg,rgba(148,163,184,0.22),transparent)] text-muted-foreground">
           <BookOpen class="h-12 w-12" />
-          <span class="text-xs font-semibold uppercase tracking-[0.28em]">No Cover</span>
+          <span class="text-xs font-semibold uppercase tracking-[0.28em]">표지 없음</span>
         </div>
       </div>
 
@@ -236,7 +305,7 @@ const handleSaveReview = () => {
               @click="router.back()"
             >
               <ArrowLeft class="h-4 w-4" />
-              <span>Back</span>
+              <span>뒤로</span>
             </button>
             <div v-if="!isEditing">
               <h1 class="text-3xl font-semibold tracking-tight">{{ book.title }}</h1>
@@ -247,16 +316,16 @@ const handleSaveReview = () => {
                 <input
                   v-model="editDraft.title"
                   class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-xl font-semibold outline-none transition focus:border-primary"
-                  placeholder="Book Title"
+                  placeholder="책 제목"
                 />
                 <input
                   v-model="editDraft.author"
                   class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
-                  placeholder="Author"
+                  placeholder="저자"
                 />
                 <div class="grid gap-3 sm:grid-cols-2">
                   <label class="flex flex-col gap-1.5">
-                    <span class="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Pages</span>
+                    <span class="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">전체 페이지</span>
                     <input
                       v-model.number="editDraft.totalPages"
                       type="number"
@@ -265,7 +334,7 @@ const handleSaveReview = () => {
                     />
                   </label>
                   <label class="flex flex-col gap-1.5">
-                    <span class="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cover Image URL</span>
+                    <span class="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">표지 이미지 URL</span>
                     <input
                       v-model="editDraft.coverUrl"
                       class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
@@ -275,7 +344,7 @@ const handleSaveReview = () => {
                 </div>
                 <div class="grid gap-3 sm:grid-cols-3">
                   <label class="flex flex-col gap-1.5">
-                    <span class="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Current Page</span>
+                    <span class="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">현재 페이지</span>
                     <input
                       v-model.number="editDraft.currentPage"
                       type="number"
@@ -285,7 +354,7 @@ const handleSaveReview = () => {
                     />
                   </label>
                   <label class="flex flex-col gap-1.5">
-                    <span class="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Start Date</span>
+                    <span class="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">시작일</span>
                     <input
                       v-model="editDraft.startDate"
                       type="date"
@@ -294,7 +363,7 @@ const handleSaveReview = () => {
                     />
                   </label>
                   <label class="flex flex-col gap-1.5">
-                    <span class="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">End Date</span>
+                    <span class="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">완료일</span>
                     <input
                       v-model="editDraft.endDate"
                       type="date"
@@ -345,16 +414,48 @@ const handleSaveReview = () => {
                 class="inline-flex h-11 items-center justify-center rounded-2xl border border-border px-4 text-sm font-medium transition hover:bg-muted"
                 @click="cancelEditing"
               >
-                Cancel
+                취소
               </button>
               <button
                 type="button"
                 class="inline-flex h-11 items-center justify-center rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90"
                 @click="handleSaveEdit"
               >
-                Save
+                저장
               </button>
             </template>
+          </div>
+        </div>
+
+        <div
+          v-if="showDeleteConfirm"
+          class="rounded-[24px] border border-destructive/30 bg-destructive/5 p-4"
+        >
+          <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div class="space-y-1">
+              <p class="text-sm font-semibold text-foreground">이 책을 삭제할까요?</p>
+              <p class="text-sm text-muted-foreground">
+                삭제 후 잠깐 동안은 되돌릴 수 있지만, 시간이 지나면 복구할 수 없습니다.
+              </p>
+            </div>
+            <div class="flex gap-2 sm:justify-end">
+              <button
+                type="button"
+                aria-label="Cancel delete"
+                class="inline-flex h-10 items-center justify-center rounded-2xl border border-border px-4 text-sm font-medium transition hover:bg-background"
+                @click="cancelDelete"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                aria-label="Confirm delete"
+                class="inline-flex h-10 items-center justify-center rounded-2xl bg-destructive px-4 text-sm font-semibold text-destructive-foreground transition hover:bg-destructive/90"
+                @click="confirmDelete"
+              >
+                삭제
+              </button>
+            </div>
           </div>
         </div>
 
@@ -362,9 +463,9 @@ const handleSaveReview = () => {
           <div class="rounded-2xl bg-muted/70 p-4">
             <div class="flex items-start justify-between gap-3">
               <div>
-                <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Progress</p>
+            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">진행률</p>
                 <p class="mt-2 text-2xl font-semibold">{{ progressPercentage }}%</p>
-                <p class="mt-1 text-sm text-muted-foreground">{{ book.currentPage }} / {{ book.totalPages }} pages</p>
+                <p class="mt-1 text-sm text-muted-foreground">{{ book.currentPage }} / {{ book.totalPages }} 페이지</p>
               </div>
               <button
                 type="button"
@@ -376,7 +477,7 @@ const handleSaveReview = () => {
             </div>
             <div v-if="showPageEditor" class="mt-4 space-y-3">
               <label class="space-y-2 text-sm font-medium">
-                <span>Current Page</span>
+                <span>현재 페이지</span>
                 <input
                   v-model.number="currentPageDraft"
                   type="number"
@@ -405,14 +506,14 @@ const handleSaveReview = () => {
             </div>
           </div>
           <div class="rounded-2xl bg-muted/70 p-4">
-            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Started</p>
+            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">시작일</p>
             <div class="mt-2 flex items-center gap-2 text-sm font-medium">
               <Calendar class="h-4 w-4 text-muted-foreground" />
               <span>{{ formatDate(book.startDate) }}</span>
             </div>
           </div>
           <div class="rounded-2xl bg-muted/70 p-4">
-            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Finished</p>
+            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">완료일</p>
             <div class="mt-2 flex items-center gap-2 text-sm font-medium">
               <CheckCircle2 class="h-4 w-4 text-muted-foreground" />
               <span>{{ formatDate(book.endDate) }}</span>
@@ -422,8 +523,8 @@ const handleSaveReview = () => {
 
         <div class="space-y-2">
           <div class="flex items-center justify-between text-sm">
-            <span class="font-medium">Reading Progress</span>
-            <span class="text-muted-foreground">{{ progressPercentage }}% Complete</span>
+            <span class="font-medium">독서 진행률</span>
+            <span class="text-muted-foreground">{{ progressPercentage }}% 완료</span>
           </div>
           <div class="h-3 rounded-full bg-muted">
             <div class="h-full rounded-full bg-primary transition-all" :style="{ width: `${progressPercentage}%` }" />
@@ -431,7 +532,7 @@ const handleSaveReview = () => {
         </div>
 
         <div class="space-y-2">
-          <p class="text-sm font-medium">Tags</p>
+          <p class="text-sm font-medium">태그</p>
           <div class="flex flex-wrap items-center gap-2">
             <span
               v-for="tag in book.tags"
@@ -469,7 +570,7 @@ const handleSaveReview = () => {
         <section class="rounded-[28px] border border-border/70 bg-card/90 p-6 shadow-sm">
           <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 class="text-xl font-semibold">Reading Logs</h2>
+              <h2 class="text-xl font-semibold">독서 로그</h2>
               <p class="text-sm text-muted-foreground">페이지 범위와 간단한 메모를 남겨 독서 흐름을 이어가세요.</p>
             </div>
             <button
@@ -477,14 +578,14 @@ const handleSaveReview = () => {
               class="inline-flex h-11 items-center justify-center rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
               @click="showLogForm = !showLogForm"
             >
-              {{ showLogForm ? 'Close' : 'Add Log' }}
+              {{ showLogForm ? '닫기' : '로그 추가' }}
             </button>
           </div>
 
           <div v-if="showLogForm" class="mt-6 rounded-[24px] border border-border bg-background/60 p-4">
             <div class="grid gap-4 sm:grid-cols-3">
               <label class="space-y-2 text-sm font-medium">
-                <span>Start Page</span>
+                <span>시작 페이지</span>
                 <input
                   v-model.number="newLog.startPage"
                   type="number"
@@ -494,7 +595,7 @@ const handleSaveReview = () => {
               </label>
 
               <label class="space-y-2 text-sm font-medium">
-                <span>End Page</span>
+                <span>종료 페이지</span>
                 <input
                   v-model.number="newLog.endPage"
                   type="number"
@@ -504,7 +605,7 @@ const handleSaveReview = () => {
               </label>
 
               <label class="space-y-2 text-sm font-medium">
-                <span>Log Date</span>
+                <span>기록 날짜</span>
                 <input
                   v-model="newLog.date"
                   type="date"
@@ -515,11 +616,11 @@ const handleSaveReview = () => {
             </div>
 
             <label class="mt-4 block space-y-2 text-sm font-medium">
-              <span>Notes</span>
+              <span>메모</span>
               <textarea
                 v-model="newLog.content"
                 class="min-h-[120px] w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm outline-none transition focus:border-primary"
-                placeholder="What stood out today?"
+                placeholder="오늘 인상 깊었던 내용을 남겨보세요."
               />
             </label>
 
@@ -531,21 +632,21 @@ const handleSaveReview = () => {
                   class="inline-flex h-11 items-center justify-center rounded-2xl border border-border px-4 text-sm font-medium transition hover:bg-muted"
                   @click="showLogForm = false"
                 >
-                  Cancel
+                  취소
                 </button>
                 <button
                   type="button"
                   class="inline-flex h-11 items-center justify-center rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
                   @click="handleAddLog"
                 >
-                  Save Log
+                  저장
                 </button>
               </div>
             </div>
           </div>
 
           <div v-if="book.logs.length === 0" class="mt-6 rounded-[24px] border border-dashed border-border bg-muted/30 p-8 text-center text-sm text-muted-foreground">
-            No reading logs yet.
+            아직 기록된 독서 로그가 없습니다.
           </div>
 
           <div v-else class="mt-6 space-y-4">
@@ -555,7 +656,7 @@ const handleSaveReview = () => {
               class="rounded-[24px] border border-border/70 bg-background/60 p-5"
             >
               <div class="flex flex-wrap items-center justify-between gap-3">
-                <p class="text-sm font-medium">{{ format(new Date(log.date), 'MMM d, yyyy') }}</p>
+                <p class="text-sm font-medium">{{ format(new Date(log.date), 'yyyy. M. d.') }}</p>
                 <span class="rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground">
                   p. {{ log.startPage }} - {{ log.endPage }}
                 </span>
@@ -570,7 +671,7 @@ const handleSaveReview = () => {
       <section class="rounded-[28px] border border-border/70 bg-card/90 p-6 shadow-sm">
         <div class="flex items-center justify-between gap-4">
           <div>
-            <h2 class="text-xl font-semibold">Review & Rating</h2>
+            <h2 class="text-xl font-semibold">리뷰와 별점</h2>
             <p class="text-sm text-muted-foreground">완독 후의 감상이나 재독 포인트를 남겨 두세요.</p>
           </div>
           <span v-if="book.rating" class="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
@@ -579,7 +680,7 @@ const handleSaveReview = () => {
         </div>
 
         <div class="mt-6 space-y-3">
-          <p class="text-sm font-medium">Rating</p>
+          <p class="text-sm font-medium">별점</p>
           <div class="flex items-center gap-2">
             <button
               v-for="rating in 5"
@@ -600,18 +701,18 @@ const handleSaveReview = () => {
               class="text-sm font-medium text-muted-foreground transition hover:text-foreground"
               @click="selectedRating = undefined"
             >
-              Clear
+              초기화
             </button>
           </div>
         </div>
 
         <label class="mt-6 block space-y-2 text-sm font-medium">
-          <span>Review</span>
+          <span>리뷰</span>
           <textarea
             id="review"
             v-model="reviewDraft"
             class="min-h-[180px] w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm outline-none transition focus:border-primary"
-            placeholder="Write your thoughts about this book."
+            placeholder="이 책에 대한 감상을 남겨보세요."
           />
         </label>
 
@@ -624,7 +725,7 @@ const handleSaveReview = () => {
             class="inline-flex h-11 items-center justify-center rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
             @click="handleSaveReview"
           >
-            Save Review
+            리뷰 저장
           </button>
         </div>
 
@@ -643,12 +744,44 @@ const handleSaveReview = () => {
     </section>
   </div>
 
+  <section
+    v-else-if="deletedBook"
+    class="rounded-[30px] border border-border bg-card/90 p-8 shadow-sm"
+  >
+    <div class="mx-auto flex max-w-xl flex-col gap-4 text-center sm:text-left">
+      <div class="space-y-2">
+        <p class="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">삭제됨</p>
+        <h1 class="text-2xl font-semibold">{{ deletedBook.title }}을(를) 삭제했습니다.</h1>
+        <p class="text-sm leading-6 text-muted-foreground">
+          {{ undoCountdownSeconds }}초 안에는 되돌릴 수 있습니다. 시간이 지나면 이 화면에서도 복구할 수 없습니다.
+        </p>
+      </div>
+      <div class="flex flex-col gap-2 sm:flex-row">
+        <button
+          type="button"
+          aria-label="Undo delete"
+          class="inline-flex h-11 items-center justify-center rounded-2xl bg-primary px-5 text-sm font-semibold text-primary-foreground"
+          @click="handleUndoDelete"
+        >
+          삭제 취소
+        </button>
+        <button
+          type="button"
+          class="inline-flex h-11 items-center justify-center rounded-2xl border border-border px-5 text-sm font-medium transition hover:bg-muted"
+          @click="router.push('/books')"
+        >
+          서재로 이동
+        </button>
+      </div>
+    </div>
+  </section>
+
   <section v-else class="rounded-[30px] border border-dashed border-border bg-card/80 p-12 text-center">
     <div class="mx-auto flex max-w-md flex-col items-center gap-4">
       <div class="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
         <BookOpen class="h-7 w-7 text-muted-foreground" />
       </div>
-      <h1 class="text-2xl font-semibold">Book not found.</h1>
+      <h1 class="text-2xl font-semibold">책을 찾을 수 없습니다.</h1>
       <p class="text-sm leading-6 text-muted-foreground">
         요청한 책이 존재하지 않거나 이미 삭제되었습니다. 서재 목록으로 돌아가 다른 책을 선택해 주세요.
       </p>
@@ -656,7 +789,7 @@ const handleSaveReview = () => {
         to="/books"
         class="inline-flex h-11 items-center justify-center rounded-2xl bg-primary px-5 text-sm font-semibold text-primary-foreground"
       >
-        Go to Library
+        서재로 이동
       </RouterLink>
     </div>
   </section>

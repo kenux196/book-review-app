@@ -18,6 +18,12 @@ import {
 import { getBookRepository } from './bookRepositoryProvider'
 
 const STATUS_ORDER: BookStatus[] = ['TO_READ', 'READING', 'READ', 'STOPPED']
+const DELETE_UNDO_WINDOW_MS = 5000
+
+type PendingDeletion = {
+  book: Book
+  index: number
+}
 
 const toIsoDateString = (value: unknown) => {
   if (typeof value !== 'string' || !value) return undefined
@@ -86,10 +92,13 @@ export const useBookStore = defineStore('book', () => {
   const books = ref<Book[]>([])
   const theme = ref<ThemePreference>('light')
   const isHydrated = ref(false)
+  const pendingDeletion = ref<PendingDeletion | null>(null)
+  const deleteUndoExpiresAt = ref<number | null>(null)
 
   const repository = getBookRepository()
   let initializePromise: Promise<void> | null = null
   let persistQueue = Promise.resolve()
+  let deleteUndoTimer: ReturnType<typeof setTimeout> | null = null
 
   const enqueuePersist = (task: () => Promise<void>) => {
     persistQueue = persistQueue
@@ -126,6 +135,28 @@ export const useBookStore = defineStore('book', () => {
 
   const readingBooks = computed(() => books.value.filter(book => book.status === 'READING'))
   const readBooks = computed(() => books.value.filter(book => book.status === 'READ'))
+  const recentlyDeletedBook = computed(() => pendingDeletion.value?.book)
+
+  const clearPendingDeletion = () => {
+    if (deleteUndoTimer) {
+      clearTimeout(deleteUndoTimer)
+      deleteUndoTimer = null
+    }
+
+    pendingDeletion.value = null
+    deleteUndoExpiresAt.value = null
+  }
+
+  const armDeleteUndoWindow = (windowMs = DELETE_UNDO_WINDOW_MS) => {
+    if (deleteUndoTimer) {
+      clearTimeout(deleteUndoTimer)
+    }
+
+    deleteUndoExpiresAt.value = Date.now() + windowMs
+    deleteUndoTimer = setTimeout(() => {
+      clearPendingDeletion()
+    }, windowMs)
+  }
 
   const getBookById = (id: string) => {
     return books.value.find(book => book.id === id)
@@ -312,12 +343,32 @@ export const useBookStore = defineStore('book', () => {
   }
 
   const deleteBook = (id: string): StoreActionResult => {
-    const nextBooks = books.value.filter(book => book.id !== id)
-    if (nextBooks.length === books.value.length) {
+    const index = books.value.findIndex(book => book.id === id)
+    if (index === -1) {
       return { ok: false, message: '책을 찾을 수 없습니다.' }
     }
 
+    pendingDeletion.value = {
+      book: books.value[index]!,
+      index,
+    }
+    books.value = books.value.filter(book => book.id !== id)
+    armDeleteUndoWindow()
+
+    return { ok: true }
+  }
+
+  const undoDeleteBook = (): StoreActionResult => {
+    if (!pendingDeletion.value) {
+      return { ok: false, message: '복구할 삭제 항목이 없습니다.' }
+    }
+
+    const { book, index } = pendingDeletion.value
+    const nextBooks = [...books.value]
+    nextBooks.splice(Math.min(index, nextBooks.length), 0, book)
     books.value = nextBooks
+    clearPendingDeletion()
+
     return { ok: true }
   }
 
@@ -332,6 +383,8 @@ export const useBookStore = defineStore('book', () => {
     initialize,
     readingBooks,
     readBooks,
+    recentlyDeletedBook,
+    deleteUndoExpiresAt,
     getBookById,
     addBook,
     updateBook,
@@ -339,6 +392,7 @@ export const useBookStore = defineStore('book', () => {
     addReadingLog,
     saveReview,
     deleteBook,
+    undoDeleteBook,
     setTheme,
   }
 })

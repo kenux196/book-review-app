@@ -30,12 +30,12 @@ describe('BookListView', () => {
     })
 
     await wrapper.find('button').trigger('click')
-    await wrapper.find('input[placeholder="Book Title"]').setValue('New Book')
-    await wrapper.find('input[placeholder="Author Name"]').setValue('New Author')
-    await wrapper.find('input[placeholder="Total Pages"]').setValue('320')
+    await wrapper.find('input[placeholder="책 제목"]').setValue('New Book')
+    await wrapper.find('input[placeholder="저자명"]').setValue('New Author')
+    await wrapper.find('input[placeholder="전체 페이지 수"]').setValue('320')
     await wrapper.find('input[placeholder="https://example.com/cover.jpg"]').setValue('https://example.com/book.jpg')
 
-    const saveButton = wrapper.findAll('button').find(button => button.text() === 'Save Book')
+    const saveButton = wrapper.findAll('button').find(button => button.text() === '저장')
     await saveButton?.trigger('click')
 
     const store = useBookStore()
@@ -55,13 +55,13 @@ describe('BookListView', () => {
     })
 
     await wrapper.find('button').trigger('click')
-    await wrapper.find('input[placeholder="Book Title"]').setValue('Currently Reading')
-    await wrapper.find('input[placeholder="Author Name"]').setValue('Reader')
-    await wrapper.find('input[placeholder="Total Pages"]').setValue('280')
-    await wrapper.find('select[aria-label="Initial status"]').setValue('READING')
-    await wrapper.find('input[placeholder="Current Page"]').setValue('48')
+    await wrapper.find('input[placeholder="책 제목"]').setValue('Currently Reading')
+    await wrapper.find('input[placeholder="저자명"]').setValue('Reader')
+    await wrapper.find('input[placeholder="전체 페이지 수"]').setValue('280')
+    await wrapper.find('select[aria-label="초기 상태"]').setValue('READING')
+    await wrapper.find('input[placeholder="현재 페이지"]').setValue('48')
 
-    const saveButton = wrapper.findAll('button').find(button => button.text() === 'Save Book')
+    const saveButton = wrapper.findAll('button').find(button => button.text() === '저장')
     await saveButton?.trigger('click')
 
     const store = useBookStore()
@@ -81,15 +81,15 @@ describe('BookListView', () => {
     })
 
     await wrapper.find('button').trigger('click')
-    await wrapper.find('input[placeholder="Book Title"]').setValue('Finished Book')
-    await wrapper.find('input[placeholder="Author Name"]').setValue('Finisher')
-    await wrapper.find('input[placeholder="Total Pages"]').setValue('410')
-    await wrapper.find('select[aria-label="Initial status"]').setValue('READ')
+    await wrapper.find('input[placeholder="책 제목"]').setValue('Finished Book')
+    await wrapper.find('input[placeholder="저자명"]').setValue('Finisher')
+    await wrapper.find('input[placeholder="전체 페이지 수"]').setValue('410')
+    await wrapper.find('select[aria-label="초기 상태"]').setValue('READ')
 
-    expect(wrapper.find('input[placeholder="Current Page"]').exists()).toBe(false)
+    expect(wrapper.find('input[placeholder="현재 페이지"]').exists()).toBe(false)
     expect(wrapper.text()).toContain('100%')
 
-    const saveButton = wrapper.findAll('button').find(button => button.text() === 'Save Book')
+    const saveButton = wrapper.findAll('button').find(button => button.text() === '저장')
     await saveButton?.trigger('click')
 
     const store = useBookStore()
@@ -109,11 +109,11 @@ describe('BookListView', () => {
     })
 
     await wrapper.find('button').trigger('click')
-    await wrapper.find('input[placeholder="Book Title"]').setValue(' ')
-    await wrapper.find('input[placeholder="Author Name"]').setValue('Author')
-    await wrapper.find('input[placeholder="Total Pages"]').setValue('0')
+    await wrapper.find('input[placeholder="책 제목"]').setValue(' ')
+    await wrapper.find('input[placeholder="저자명"]').setValue('Author')
+    await wrapper.find('input[placeholder="전체 페이지 수"]').setValue('0')
 
-    const saveButton = wrapper.findAll('button').find(button => button.text() === 'Save Book')
+    const saveButton = wrapper.findAll('button').find(button => button.text() === '저장')
     await saveButton?.trigger('click')
 
     expect(wrapper.text()).toContain('책 제목을 입력해 주세요.')
@@ -132,7 +132,7 @@ describe('BookListView', () => {
       global: { plugins: [router] },
     })
 
-    await wrapper.find('input[placeholder="Search books..."]').setValue('Clean')
+    await wrapper.find('input[placeholder="책 제목, 저자, 태그 검색"]').setValue('Clean')
     const selects = wrapper.findAll('select')
     expect(selects[0]).toBeDefined()
     await selects[0]!.setValue('READING')
@@ -172,6 +172,6 @@ describe('BookListView', () => {
       global: { plugins: [router] },
     })
 
-    expect(wrapper.text()).toContain('No books found.')
+    expect(wrapper.text()).toContain('조건에 맞는 책이 없습니다.')
   })
 })

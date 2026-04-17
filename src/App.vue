@@ -8,8 +8,8 @@ const route = useRoute()
 const bookStore = useBookStore()
 
 const navItems = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/books', label: 'Library', icon: Library },
+  { to: '/', label: '대시보드', icon: LayoutDashboard },
+  { to: '/books', label: '내 서재', icon: Library },
 ]
 
 const themeLabel = computed(() => bookStore.theme === 'dark' ? '다크 모드 켜짐' : '라이트 모드 켜짐')
@@ -44,7 +44,7 @@ const toggleTheme = () => {
           >
             <Sun v-if="bookStore.theme === 'dark'" class="h-4 w-4" />
             <Moon v-else class="h-4 w-4" />
-            <span>{{ bookStore.theme === 'dark' ? 'Light' : 'Dark' }}</span>
+            <span>{{ bookStore.theme === 'dark' ? '라이트' : '다크' }}</span>
           </button>
         </div>
 

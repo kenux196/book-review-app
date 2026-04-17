@@ -94,7 +94,7 @@ const getMonthLabel = (weekIndex: number): string => {
     const prevFirstDay = prevWeek?.find((d): d is DayCell => d !== null)
 
     if (!prevFirstDay || firstDay.date.getMonth() !== prevFirstDay.date.getMonth()) {
-      return format(firstDay.date, 'MMM')
+      return format(firstDay.date, 'M월')
     }
   }
   return ''
@@ -109,7 +109,7 @@ const getCellColor = (day: DayCell) => {
   return 'bg-primary'
 }
 
-const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
 
 // 현재 선택된 연도의 통계
 const yearStats = computed(() => {
@@ -131,7 +131,7 @@ const yearStats = computed(() => {
   <div class="rounded-[28px] border border-border/70 bg-card/90 p-6 shadow-sm transition-all duration-300">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <h2 class="text-xl font-semibold">Reading Activity</h2>
+        <h2 class="text-xl font-semibold">독서 활동</h2>
         <p class="text-sm text-muted-foreground">{{ currentYear }}년 독서 기록</p>
       </div>
 
@@ -227,12 +227,11 @@ const yearStats = computed(() => {
         </div>
       </div>
       <div class="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-        <span>Less</span>
+        <span>적음</span>
         <div class="h-[12px] w-[12px] rounded-[2px] bg-muted" />
         <div class="h-[12px] w-[12px] rounded-[2px] bg-primary" />
-        <span>More</span>
+        <span>많음</span>
       </div>
     </div>
   </div>
 </template>
-

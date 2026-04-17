@@ -24,7 +24,7 @@ const readingStreakHint = computed(() => {
       <div class="space-y-4">
         <span class="inline-flex w-fit items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-primary">
           <Sparkles class="h-3.5 w-3.5" />
-          Dashboard
+          대시보드
         </span>
         <div class="space-y-3">
           <h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">독서의 현재 위치를 빠르게 확인하세요.</h1>
@@ -35,13 +35,13 @@ const readingStreakHint = computed(() => {
       </div>
 
       <div class="rounded-[26px] bg-muted/60 p-5">
-        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Next Move</p>
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">다음 액션</p>
         <p class="mt-3 text-sm leading-6 text-foreground/90">{{ readingStreakHint }}</p>
         <RouterLink
           to="/books"
           class="mt-5 inline-flex h-11 items-center justify-center rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
         >
-          Open Library
+          서재 열기
         </RouterLink>
       </div>
     </section>
@@ -49,7 +49,7 @@ const readingStreakHint = computed(() => {
     <section class="grid gap-4 md:grid-cols-3">
       <article class="rounded-[26px] border border-border/70 bg-card/90 p-5 shadow-sm">
         <div class="flex items-center justify-between">
-          <p class="text-sm font-medium text-muted-foreground">Reading Now</p>
+          <p class="text-sm font-medium text-muted-foreground">지금 읽는 책</p>
           <BookOpen class="h-4 w-4 text-muted-foreground" />
         </div>
         <p class="mt-4 text-3xl font-semibold">{{ bookStore.readingBooks.length }}</p>
@@ -58,7 +58,7 @@ const readingStreakHint = computed(() => {
 
       <article class="rounded-[26px] border border-border/70 bg-card/90 p-5 shadow-sm">
         <div class="flex items-center justify-between">
-          <p class="text-sm font-medium text-muted-foreground">Books Read</p>
+          <p class="text-sm font-medium text-muted-foreground">완독한 책</p>
           <CheckCircle2 class="h-4 w-4 text-muted-foreground" />
         </div>
         <p class="mt-4 text-3xl font-semibold">{{ bookStore.readBooks.length }}</p>
@@ -67,7 +67,7 @@ const readingStreakHint = computed(() => {
 
       <article class="rounded-[26px] border border-border/70 bg-card/90 p-5 shadow-sm">
         <div class="flex items-center justify-between">
-          <p class="text-sm font-medium text-muted-foreground">Total Pages</p>
+          <p class="text-sm font-medium text-muted-foreground">누적 페이지</p>
           <Clock3 class="h-4 w-4 text-muted-foreground" />
         </div>
         <p class="mt-4 text-3xl font-semibold">{{ totalPagesRead }}</p>
@@ -83,10 +83,10 @@ const readingStreakHint = computed(() => {
     <section class="space-y-4">
       <div class="flex items-center justify-between gap-4">
         <div>
-          <h2 class="text-2xl font-semibold tracking-tight">Currently Reading</h2>
+          <h2 class="text-2xl font-semibold tracking-tight">이어 읽기</h2>
           <p class="text-sm text-muted-foreground">진행 중인 책의 상태와 페이지를 바로 확인합니다.</p>
         </div>
-        <RouterLink to="/books" class="text-sm font-medium text-primary transition hover:opacity-80">See all books</RouterLink>
+        <RouterLink to="/books" class="text-sm font-medium text-primary transition hover:opacity-80">서재 전체 보기</RouterLink>
       </div>
 
       <div v-if="bookStore.readingBooks.length === 0" class="rounded-[28px] border border-dashed border-border bg-card/70 p-10 text-center">
@@ -94,7 +94,7 @@ const readingStreakHint = computed(() => {
           <div class="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
             <LibraryBig class="h-6 w-6 text-muted-foreground" />
           </div>
-          <h3 class="text-xl font-semibold">No books currently in progress.</h3>
+          <h3 class="text-xl font-semibold">지금 읽는 책이 없습니다.</h3>
           <p class="text-sm leading-6 text-muted-foreground">
             서재에서 책을 추가하거나 상태를 Reading으로 바꾸면 여기에서 바로 이어서 볼 수 있습니다.
           </p>
@@ -102,7 +102,7 @@ const readingStreakHint = computed(() => {
             to="/books"
             class="inline-flex h-11 items-center justify-center rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
           >
-            Add or Start a Book
+            책 추가하거나 시작하기
           </RouterLink>
         </div>
       </div>
@@ -120,13 +120,13 @@ const readingStreakHint = computed(() => {
               <p class="mt-1 text-sm text-muted-foreground">{{ book.author }}</p>
             </div>
             <span class="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-700 dark:bg-sky-500/15 dark:text-sky-300">
-              Reading
+              읽는 중
             </span>
           </div>
 
           <div class="mt-6 space-y-2">
             <div class="flex items-center justify-between text-sm">
-              <span>Progress</span>
+              <span>진행률</span>
               <span>{{ Math.round((book.currentPage / book.totalPages) * 100) }}%</span>
             </div>
             <div class="h-2 rounded-full bg-muted">
@@ -136,8 +136,8 @@ const readingStreakHint = computed(() => {
               />
             </div>
             <div class="flex items-center justify-between text-xs text-muted-foreground">
-              <span>{{ book.currentPage }} / {{ book.totalPages }} pages</span>
-              <span>{{ book.logs.length }} logs</span>
+              <span>{{ book.currentPage }} / {{ book.totalPages }} 페이지</span>
+              <span>로그 {{ book.logs.length }}개</span>
             </div>
           </div>
         </RouterLink>
