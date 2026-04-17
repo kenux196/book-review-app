@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RouterLink, RouterView, useRoute } from 'vue-router'
-import { BookOpen, LayoutDashboard, Library, Moon, Sun } from 'lucide-vue-next'
+import { BookOpen, Laptop, LayoutDashboard, Library, Moon, Sun } from 'lucide-vue-next'
 import { useBookStore } from './stores/book'
 
 const route = useRoute()
@@ -12,10 +12,21 @@ const navItems = [
   { to: '/books', label: '내 서재', icon: Library },
 ]
 
-const themeLabel = computed(() => bookStore.theme === 'dark' ? '다크 모드 켜짐' : '라이트 모드 켜짐')
+const themeLabel = computed(() => {
+  if (bookStore.theme === 'system') {
+    return `시스템 테마 사용 중 (${bookStore.resolvedTheme === 'dark' ? '다크' : '라이트'})`
+  }
+
+  return bookStore.theme === 'dark' ? '다크 모드 사용 중' : '라이트 모드 사용 중'
+})
+
+const themeButtonText = computed(() => {
+  if (bookStore.theme === 'system') return '시스템'
+  return bookStore.theme === 'dark' ? '다크' : '라이트'
+})
 
 const toggleTheme = () => {
-  bookStore.setTheme(bookStore.theme === 'dark' ? 'light' : 'dark')
+  bookStore.cycleTheme()
 }
 </script>
 
@@ -42,9 +53,10 @@ const toggleTheme = () => {
             :aria-label="themeLabel"
             @click="toggleTheme"
           >
-            <Sun v-if="bookStore.theme === 'dark'" class="h-4 w-4" />
+            <Laptop v-if="bookStore.theme === 'system'" class="h-4 w-4" />
+            <Sun v-else-if="bookStore.theme === 'dark'" class="h-4 w-4" />
             <Moon v-else class="h-4 w-4" />
-            <span>{{ bookStore.theme === 'dark' ? '라이트' : '다크' }}</span>
+            <span>{{ themeButtonText }}</span>
           </button>
         </div>
 

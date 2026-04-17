@@ -7,7 +7,7 @@ import type { BookRepository, BookStoreSnapshot } from './bookRepository'
 import type { Book, ThemePreference } from '../types/book'
 
 class InMemoryBookRepository implements BookRepository {
-  snapshot: BookStoreSnapshot = { books: [], theme: 'light' }
+  snapshot: BookStoreSnapshot = { books: [], theme: 'system' }
 
   hydrate = vi.fn(async () => structuredClone(this.snapshot))
   saveBooks = vi.fn(async (books: Book[]) => {
@@ -17,7 +17,7 @@ class InMemoryBookRepository implements BookRepository {
     this.snapshot.theme = theme
   })
   clear = vi.fn(async () => {
-    this.snapshot = { books: [], theme: 'light' }
+    this.snapshot = { books: [], theme: 'system' }
   })
 }
 
@@ -32,6 +32,31 @@ describe('useBookStore', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-04-17T09:00:00.000Z'))
+    const listeners = new Set<(event: MediaQueryListEvent) => void>()
+    const mediaQueryList = {
+      matches: false,
+      media: '(prefers-color-scheme: dark)',
+      onchange: null,
+      addEventListener: vi.fn((_event: string, listener: (event: MediaQueryListEvent) => void) => {
+        listeners.add(listener)
+      }),
+      removeEventListener: vi.fn((_event: string, listener: (event: MediaQueryListEvent) => void) => {
+        listeners.delete(listener)
+      }),
+      addListener: vi.fn((listener: (event: MediaQueryListEvent) => void) => {
+        listeners.add(listener)
+      }),
+      removeListener: vi.fn((listener: (event: MediaQueryListEvent) => void) => {
+        listeners.delete(listener)
+      }),
+      dispatch(matches: boolean) {
+        this.matches = matches
+        const event = { matches, media: this.media } as MediaQueryListEvent
+        listeners.forEach(listener => listener(event))
+      },
+    }
+
+    vi.stubGlobal('matchMedia', vi.fn(() => mediaQueryList))
     repo = new InMemoryBookRepository()
     setBookRepositoryForTests(repo)
     setupTestPinia()
@@ -40,6 +65,7 @@ describe('useBookStore', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+    vi.unstubAllGlobals()
     setBookRepositoryForTests()
   })
 
@@ -245,6 +271,24 @@ describe('useBookStore', () => {
     expect(document.documentElement.classList.contains('dark')).toBe(true)
   })
 
+  it('defaults to the system theme and reacts to system preference changes', async () => {
+    const mediaQueryList = window.matchMedia('(prefers-color-scheme: dark)') as MediaQueryList & {
+      dispatch: (matches: boolean) => void
+    }
+
+    const store = useBookStore()
+    await store.initialize()
+
+    expect(store.theme).toBe('system')
+    expect(store.resolvedTheme).toBe('light')
+    expect(document.documentElement.classList.contains('dark')).toBe(false)
+
+    mediaQueryList.dispatch(true)
+
+    expect(store.resolvedTheme).toBe('dark')
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
+  })
+
   it('exports a backup payload with books and theme metadata', async () => {
     const store = useBookStore()
     await store.initialize()
@@ -276,7 +320,7 @@ describe('useBookStore', () => {
     const mergePreview = store.previewBackup(JSON.stringify({
       version: 1,
       exportedAt: '2026-04-16T10:00:00.000Z',
-      theme: 'light',
+      theme: 'system',
       books: [
         {
           id: 'imported-book',

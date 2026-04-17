@@ -131,7 +131,7 @@ const normalizeBackupPayload = (value: unknown): BackupPayload | undefined => {
     return {
       version: BACKUP_VERSION,
       exportedAt: new Date().toISOString(),
-      theme: 'light',
+      theme: 'system',
       books,
     }
   }
@@ -177,7 +177,8 @@ const mergeBooksById = (currentBooks: Book[], importedBooks: Book[]) => {
 
 export const useBookStore = defineStore('book', () => {
   const books = ref<Book[]>([])
-  const theme = ref<ThemePreference>('light')
+  const theme = ref<ThemePreference>('system')
+  const resolvedTheme = ref<'light' | 'dark'>('light')
   const isHydrated = ref(false)
   const pendingDeletion = ref<PendingDeletion | null>(null)
   const deleteUndoExpiresAt = ref<number | null>(null)
@@ -186,6 +187,44 @@ export const useBookStore = defineStore('book', () => {
   let initializePromise: Promise<void> | null = null
   let persistQueue = Promise.resolve()
   let deleteUndoTimer: ReturnType<typeof setTimeout> | null = null
+  let themeMediaQuery: MediaQueryList | null = null
+  let stopWatchingSystemTheme: (() => void) | null = null
+
+  const resolveSystemTheme = () => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return 'light' as const
+    }
+
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  }
+
+  const applyResolvedTheme = (preference: ThemePreference) => {
+    const nextResolvedTheme = preference === 'system' ? resolveSystemTheme() : preference
+    resolvedTheme.value = nextResolvedTheme
+    document.documentElement.classList.toggle('dark', nextResolvedTheme === 'dark')
+  }
+
+  const syncSystemThemeListener = (preference: ThemePreference) => {
+    stopWatchingSystemTheme?.()
+    stopWatchingSystemTheme = null
+
+    if (preference !== 'system' || typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      themeMediaQuery = null
+      return
+    }
+
+    themeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    const handleThemeChange = () => applyResolvedTheme('system')
+
+    if (typeof themeMediaQuery.addEventListener === 'function') {
+      themeMediaQuery.addEventListener('change', handleThemeChange)
+      stopWatchingSystemTheme = () => themeMediaQuery?.removeEventListener('change', handleThemeChange)
+      return
+    }
+
+    themeMediaQuery.addListener(handleThemeChange)
+    stopWatchingSystemTheme = () => themeMediaQuery?.removeListener(handleThemeChange)
+  }
 
   const enqueuePersist = (task: () => Promise<void>) => {
     persistQueue = persistQueue
@@ -198,7 +237,8 @@ export const useBookStore = defineStore('book', () => {
       const snapshot = await repository.hydrate()
       books.value = snapshot.books
       theme.value = snapshot.theme
-      document.documentElement.classList.toggle('dark', snapshot.theme === 'dark')
+      syncSystemThemeListener(snapshot.theme)
+      applyResolvedTheme(snapshot.theme)
       isHydrated.value = true
     })()
     return initializePromise
@@ -215,7 +255,8 @@ export const useBookStore = defineStore('book', () => {
   )
 
   watch(theme, value => {
-    document.documentElement.classList.toggle('dark', value === 'dark')
+    syncSystemThemeListener(value)
+    applyResolvedTheme(value)
     if (!isHydrated.value) return
     enqueuePersist(() => repository.saveTheme(value))
   })
@@ -459,6 +500,20 @@ export const useBookStore = defineStore('book', () => {
     return { ok: true }
   }
 
+  const cycleTheme = () => {
+    if (theme.value === 'system') {
+      theme.value = 'dark'
+      return
+    }
+
+    if (theme.value === 'dark') {
+      theme.value = 'light'
+      return
+    }
+
+    theme.value = 'system'
+  }
+
   const setTheme = (nextTheme: ThemePreference) => {
     theme.value = nextTheme
   }
@@ -509,6 +564,7 @@ export const useBookStore = defineStore('book', () => {
   return {
     books,
     theme,
+    resolvedTheme,
     isHydrated,
     initialize,
     readingBooks,
@@ -523,6 +579,7 @@ export const useBookStore = defineStore('book', () => {
     saveReview,
     deleteBook,
     undoDeleteBook,
+    cycleTheme,
     setTheme,
     exportBackup,
     previewBackup,

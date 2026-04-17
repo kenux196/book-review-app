@@ -1,6 +1,6 @@
 export type BookStatus = 'TO_READ' | 'READING' | 'READ' | 'STOPPED'
 export type BookSortKey = 'CREATED_AT_DESC' | 'TITLE_ASC' | 'PROGRESS_DESC' | 'STATUS_ASC'
-export type ThemePreference = 'light' | 'dark'
+export type ThemePreference = 'system' | 'light' | 'dark'
 
 export interface ReadingLog {
   id: string

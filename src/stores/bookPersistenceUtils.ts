@@ -84,5 +84,5 @@ export const normalizeBookRecord = (value: unknown): Book | undefined => {
 }
 
 export const normalizeTheme = (value: unknown): ThemePreference => {
-  return value === 'dark' ? 'dark' : 'light'
+  return value === 'dark' || value === 'light' || value === 'system' ? value : 'system'
 }

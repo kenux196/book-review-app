@@ -241,7 +241,9 @@ const applyBackupImport = () => {
             </div>
             <div class="rounded-2xl bg-background px-3 py-2">
               <dt class="text-xs text-muted-foreground">테마</dt>
-              <dd class="mt-1 font-semibold">{{ importPreview.theme === 'dark' ? '다크' : '라이트' }}</dd>
+              <dd class="mt-1 font-semibold">
+                {{ importPreview.theme === 'system' ? '시스템' : importPreview.theme === 'dark' ? '다크' : '라이트' }}
+              </dd>
             </div>
           </dl>
 
