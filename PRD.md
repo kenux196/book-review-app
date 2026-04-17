@@ -65,9 +65,14 @@
 
 ## 4. 사용자 인터페이스 (UI/UX Requirements)
 
-- **디자인 컨셉**: 깔끔하고 모던한 디자인, 집중을 돕는 차분한 컬러 팔레트.
+- **디자인 컨셉**: Raycast 계열의 macOS-native 도구 감성을 참고한 다크 유틸리티 UI.
+  - 거의 검정에 가까운 차가운 배경과 얇은 반투명 보더
+  - 다층 그림자와 inset highlight를 활용한 카드/버튼 깊이 표현
+  - 포인트 컬러는 Raycast Red 계열을 제한적으로 사용하고, 정보성 강조는 blue glow로 처리
+  - 헤더, 히어로, 카드, 입력 폼이 공통 surface token과 radius 체계를 공유
 - **반응형 웹**: 데스크탑 및 모바일 환경 최적화.
 - **테마**: 시스템 설정을 기본값으로 따르며, 사용자가 `시스템 / 라이트 / 다크`를 선택 가능. ✅
+- **디자인 기준 문서**: 구체적인 시각 규칙과 컴포넌트 스타일은 `DESIGN.md`를 단일 기준으로 사용. ✅
 
 ## 5. 기술적 요구사항 (Technical Requirements)
 
@@ -79,7 +84,7 @@
   - 기존 localStorage 데이터 첫 실행 시 자동 마이그레이션
 - **Backup Format**:
   - 버전(`version`), 내보낸 시각(`exportedAt`), 테마(`theme`), 책 목록(`books`)을 포함한 JSON 백업 지원
-- **Testing**: Vitest (unit), Playwright (E2E, 11개 시나리오)
+- **Testing**: Vitest (unit), Playwright (E2E, 13개 시나리오)
 
 ## 6. 향후 확장 고려 (Future Scope)
 
