@@ -161,7 +161,7 @@ watch(currentYear, nextYear => {
 </script>
 
 <template>
-  <div class="rounded-[28px] border border-border/70 bg-card/90 p-6 shadow-sm transition-all duration-300">
+  <div class="panel transition-all duration-300">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
         <h2 class="text-xl font-semibold">독서 활동</h2>
@@ -170,11 +170,11 @@ watch(currentYear, nextYear => {
 
       <div class="flex flex-col items-end gap-2">
         <!-- 연도 네비게이션 -->
-        <div class="flex items-center gap-2 rounded-lg border border-border/50 bg-background/50 p-1">
+        <div class="flex items-center gap-2 rounded-full border border-white/10 bg-background/50 p-1">
           <button
             @click="goToPrevYear"
             aria-label="이전 연도"
-            class="flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-accent-foreground"
+            class="flex h-7 w-7 items-center justify-center rounded-full transition-colors hover:bg-white/5 hover:text-foreground"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
           </button>
@@ -183,7 +183,7 @@ watch(currentYear, nextYear => {
             @click="goToCurrentYear"
             :disabled="isCurrentYear"
             aria-label="현재 연도로 이동"
-            class="inline-flex h-7 items-center justify-center rounded-md px-2 text-xs font-semibold transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-40 disabled:hover:bg-transparent"
+            class="inline-flex h-7 items-center justify-center rounded-full px-2 text-xs font-semibold transition-colors hover:bg-white/5 hover:text-foreground disabled:opacity-40 disabled:hover:bg-transparent"
           >
             올해
           </button>
@@ -191,7 +191,7 @@ watch(currentYear, nextYear => {
             @click="goToNextYear"
             :disabled="isNextDisabled"
             aria-label="다음 연도"
-            class="flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-30 disabled:hover:bg-transparent"
+            class="flex h-7 w-7 items-center justify-center rounded-full transition-colors hover:bg-white/5 hover:text-foreground disabled:opacity-30 disabled:hover:bg-transparent"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
           </button>
@@ -254,7 +254,7 @@ watch(currentYear, nextYear => {
       </div>
     </div>
 
-    <div class="mt-4 rounded-[20px] border border-border/60 bg-background/70 px-4 py-3">
+      <div class="mt-4 rounded-[20px] border border-white/10 bg-background/70 px-4 py-3">
       <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">선택한 날짜</p>
       <p class="mt-2 text-sm leading-6 text-foreground/90">{{ selectedDaySummary }}</p>
     </div>

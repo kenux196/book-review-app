@@ -299,16 +299,16 @@ const handleSaveReview = () => {
 </script>
 
 <template>
-  <div v-if="book" class="space-y-8">
-    <section class="grid gap-6 rounded-[30px] border border-border/70 bg-card/90 p-6 shadow-sm lg:grid-cols-[220px_minmax(0,1fr)]">
-      <div class="overflow-hidden rounded-[24px] bg-muted">
+  <div v-if="book" class="page-grid">
+    <section class="hero-section grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
+      <div class="overflow-hidden rounded-[24px] border border-white/10 bg-secondary/70">
         <img
           v-if="book.coverUrl"
           :src="book.coverUrl"
           :alt="`${book.title} cover`"
           class="aspect-[3/4] h-full w-full object-cover"
         />
-        <div v-else class="flex aspect-[3/4] flex-col items-center justify-center gap-4 bg-[linear-gradient(180deg,rgba(148,163,184,0.22),transparent)] text-muted-foreground">
+        <div v-else class="flex aspect-[3/4] flex-col items-center justify-center gap-4 bg-[linear-gradient(180deg,rgba(85,179,255,0.16),transparent)] text-muted-foreground">
           <BookOpen class="h-12 w-12" />
           <span class="text-xs font-semibold uppercase tracking-[0.28em]">표지 없음</span>
         </div>
@@ -319,7 +319,7 @@ const handleSaveReview = () => {
           <div class="flex-1 space-y-3">
             <button
               type="button"
-              class="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground transition hover:text-foreground"
+              class="action-pill-ghost px-0 py-0"
               @click="router.back()"
             >
               <ArrowLeft class="h-4 w-4" />
@@ -333,12 +333,12 @@ const handleSaveReview = () => {
               <div class="grid gap-3">
                 <input
                   v-model="editDraft.title"
-                  class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-xl font-semibold outline-none transition focus:border-primary"
+                  class="field-shell h-11 text-xl font-semibold"
                   placeholder="책 제목"
                 />
                 <input
                   v-model="editDraft.author"
-                  class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
+                  class="field-shell"
                   placeholder="저자"
                 />
                 <div class="grid gap-3 sm:grid-cols-2">
@@ -348,14 +348,14 @@ const handleSaveReview = () => {
                       v-model.number="editDraft.totalPages"
                       type="number"
                       min="1"
-                      class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
+                      class="field-shell"
                     />
                   </label>
                   <label class="flex flex-col gap-1.5">
                     <span class="px-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">표지 이미지 URL</span>
                     <input
                       v-model="editDraft.coverUrl"
-                      class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
+                      class="field-shell"
                       placeholder="https://..."
                     />
                   </label>
@@ -368,7 +368,7 @@ const handleSaveReview = () => {
                       type="number"
                       min="0"
                       :max="editDraft.totalPages"
-                      class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
+                      class="field-shell"
                     />
                   </label>
                   <label class="flex flex-col gap-1.5">
@@ -377,7 +377,7 @@ const handleSaveReview = () => {
                       v-model="editDraft.startDate"
                       type="date"
                       :max="toDateInputValue(new Date().toISOString())"
-                      class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
+                      class="field-shell"
                     />
                   </label>
                   <label class="flex flex-col gap-1.5">
@@ -386,7 +386,7 @@ const handleSaveReview = () => {
                       v-model="editDraft.endDate"
                       type="date"
                       :max="toDateInputValue(new Date().toISOString())"
-                      class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
+                      class="field-shell"
                     />
                   </label>
                 </div>
@@ -400,7 +400,7 @@ const handleSaveReview = () => {
               <label class="relative">
                 <select
                   :value="book.status"
-                  class="h-11 appearance-none rounded-2xl border border-input bg-background px-4 pr-10 text-sm outline-none transition focus:border-primary"
+                  class="field-shell appearance-none pr-10"
                   @change="handleStatusChange"
                 >
                   <option v-for="option in statusOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
@@ -411,7 +411,7 @@ const handleSaveReview = () => {
               <button
                 type="button"
                 aria-label="Edit book"
-                class="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                class="action-pill-secondary h-11 w-11 px-0 text-muted-foreground"
                 @click="startEditing"
               >
                 <Pencil class="h-4 w-4" />
@@ -420,7 +420,7 @@ const handleSaveReview = () => {
               <button
                 type="button"
                 aria-label="Delete book"
-                class="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-border text-destructive transition hover:bg-destructive/10"
+                class="action-pill-secondary h-11 w-11 px-0 text-destructive"
                 @click="handleDelete"
               >
                 <Trash2 class="h-4 w-4" />
@@ -429,14 +429,14 @@ const handleSaveReview = () => {
             <template v-else>
               <button
                 type="button"
-                class="inline-flex h-11 items-center justify-center rounded-2xl border border-border px-4 text-sm font-medium transition hover:bg-muted"
+                class="action-pill-secondary h-11 px-4"
                 @click="cancelEditing"
               >
                 취소
               </button>
               <button
                 type="button"
-                class="inline-flex h-11 items-center justify-center rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-sm transition hover:bg-primary/90"
+                class="action-pill-primary h-11 px-4"
                 @click="handleSaveEdit"
               >
                 저장
@@ -449,7 +449,7 @@ const handleSaveReview = () => {
 
         <div
           v-if="showDeleteConfirm"
-          class="rounded-[24px] border border-destructive/30 bg-destructive/5 p-4"
+          class="rounded-[24px] border border-destructive/30 bg-destructive/10 p-4"
         >
           <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div class="space-y-1">
@@ -462,7 +462,7 @@ const handleSaveReview = () => {
               <button
                 type="button"
                 aria-label="Cancel delete"
-                class="inline-flex h-10 items-center justify-center rounded-2xl border border-border px-4 text-sm font-medium transition hover:bg-background"
+                class="action-pill-secondary h-10 px-4"
                 @click="cancelDelete"
               >
                 취소
@@ -470,7 +470,7 @@ const handleSaveReview = () => {
               <button
                 type="button"
                 aria-label="Confirm delete"
-                class="inline-flex h-10 items-center justify-center rounded-2xl bg-destructive px-4 text-sm font-semibold text-destructive-foreground transition hover:bg-destructive/90"
+                class="action-pill h-10 bg-[linear-gradient(135deg,rgba(255,99,99,0.95),rgba(255,99,99,0.72))] px-4 text-destructive-foreground"
                 @click="confirmDelete"
               >
                 삭제
@@ -480,7 +480,7 @@ const handleSaveReview = () => {
         </div>
 
         <div class="grid gap-4 sm:grid-cols-3">
-          <div class="rounded-2xl bg-muted/70 p-4">
+          <div class="panel-muted">
             <div class="flex items-start justify-between gap-3">
               <div>
             <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">진행률</p>
@@ -489,7 +489,7 @@ const handleSaveReview = () => {
               </div>
               <button
                 type="button"
-                class="inline-flex h-8 items-center justify-center rounded-xl border border-border px-3 text-xs font-medium transition hover:bg-background"
+                class="action-pill-secondary h-8 rounded-xl px-3 text-xs"
                 @click="togglePageEditor"
               >
                 {{ showPageEditor ? '닫기' : '페이지 수정' }}
@@ -503,21 +503,21 @@ const handleSaveReview = () => {
                   type="number"
                   min="0"
                   :max="book.totalPages"
-                  class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
+                  class="field-shell"
                 />
               </label>
               <p v-if="currentPageError" class="text-sm font-medium text-destructive">{{ currentPageError }}</p>
               <div class="flex gap-2">
                 <button
                   type="button"
-                  class="inline-flex h-10 items-center justify-center rounded-2xl border border-border px-4 text-sm font-medium transition hover:bg-background"
+                  class="action-pill-secondary h-10 px-4"
                   @click="togglePageEditor"
                 >
                   취소
                 </button>
                 <button
                   type="button"
-                  class="inline-flex h-10 items-center justify-center rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
+                  class="action-pill-primary h-10 px-4"
                   @click="handleCurrentPageSave"
                 >
                   저장
@@ -525,14 +525,14 @@ const handleSaveReview = () => {
               </div>
             </div>
           </div>
-          <div class="rounded-2xl bg-muted/70 p-4">
+          <div class="panel-muted">
             <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">시작일</p>
             <div class="mt-2 flex items-center gap-2 text-sm font-medium">
               <Calendar class="h-4 w-4 text-muted-foreground" />
               <span>{{ formatDate(book.startDate) }}</span>
             </div>
           </div>
-          <div class="rounded-2xl bg-muted/70 p-4">
+          <div class="panel-muted">
             <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">완료일</p>
             <div class="mt-2 flex items-center gap-2 text-sm font-medium">
               <CheckCircle2 class="h-4 w-4 text-muted-foreground" />
@@ -546,8 +546,8 @@ const handleSaveReview = () => {
             <span class="font-medium">독서 진행률</span>
             <span class="text-muted-foreground">{{ progressPercentage }}% 완료</span>
           </div>
-          <div class="h-3 rounded-full bg-muted">
-            <div class="h-full rounded-full bg-primary transition-all" :style="{ width: `${progressPercentage}%` }" />
+          <div class="h-3 rounded-full bg-muted/80">
+            <div class="h-full rounded-full bg-[linear-gradient(90deg,rgba(255,99,99,0.95),rgba(85,179,255,0.85))] transition-all" :style="{ width: `${progressPercentage}%` }" />
           </div>
           <p class="text-xs text-muted-foreground">최근 로그 {{ book.logs.length }}개가 누적되어 있습니다.</p>
         </div>
@@ -558,7 +558,7 @@ const handleSaveReview = () => {
             <span
               v-for="tag in book.tags"
               :key="tag"
-              class="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary"
+              class="inline-flex items-center gap-1 rounded-full border border-white/10 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary"
             >
               {{ tag }}
               <button type="button" :aria-label="`Remove tag ${tag}`" class="transition hover:text-primary/60" @click="handleRemoveTag(tag)">
@@ -571,12 +571,12 @@ const handleSaveReview = () => {
             <input
               v-model="tagInput"
               placeholder="태그 입력 후 Enter"
-              class="h-9 flex-1 rounded-2xl border border-input bg-background px-3 text-sm outline-none transition focus:border-primary"
+              class="field-shell h-9 px-3"
               @keydown.enter.prevent="handleAddTag"
             />
             <button
               type="button"
-              class="inline-flex h-9 items-center justify-center rounded-2xl bg-primary/10 px-3 text-xs font-semibold text-primary transition hover:bg-primary/20"
+              class="action-pill-secondary h-9 rounded-2xl px-3 text-xs text-primary"
               @click="handleAddTag"
             >
               Add
@@ -588,7 +588,7 @@ const handleSaveReview = () => {
 
     <section class="grid gap-8 xl:grid-cols-[minmax(0,1fr)_360px]">
       <div class="space-y-8">
-        <section class="rounded-[28px] border border-border/70 bg-card/90 p-6 shadow-sm">
+        <section class="panel">
           <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 class="text-xl font-semibold">독서 로그</h2>
@@ -596,14 +596,14 @@ const handleSaveReview = () => {
             </div>
             <button
               type="button"
-              class="inline-flex h-11 items-center justify-center rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
+              class="action-pill-primary h-11 px-4"
               @click="showLogForm = !showLogForm"
             >
               {{ showLogForm ? '닫기' : '로그 추가' }}
             </button>
           </div>
 
-          <div v-if="showLogForm" class="mt-6 rounded-[24px] border border-border bg-background/60 p-4">
+          <div v-if="showLogForm" class="mt-6 rounded-[24px] border border-white/10 bg-background/60 p-4">
             <div class="grid gap-4 sm:grid-cols-3">
               <label class="space-y-2 text-sm font-medium">
                 <span>시작 페이지</span>
@@ -611,7 +611,7 @@ const handleSaveReview = () => {
                   v-model.number="newLog.startPage"
                   type="number"
                   min="1"
-                  class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
+                  class="field-shell"
                 />
               </label>
 
@@ -621,7 +621,7 @@ const handleSaveReview = () => {
                   v-model.number="newLog.endPage"
                   type="number"
                   min="1"
-                  class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
+                  class="field-shell"
                 />
               </label>
 
@@ -631,7 +631,7 @@ const handleSaveReview = () => {
                   v-model="newLog.date"
                   type="date"
                   :max="toDateInputValue(new Date().toISOString())"
-                  class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
+                  class="field-shell"
                 />
               </label>
             </div>
@@ -640,7 +640,7 @@ const handleSaveReview = () => {
               <span>메모</span>
               <textarea
                 v-model="newLog.content"
-                class="min-h-[120px] w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm outline-none transition focus:border-primary"
+                class="field-shell min-h-[120px] px-4 py-3"
                 placeholder="오늘 인상 깊었던 내용을 남겨보세요."
               />
             </label>
@@ -650,14 +650,14 @@ const handleSaveReview = () => {
               <div class="flex gap-2 sm:ml-auto">
                 <button
                   type="button"
-                  class="inline-flex h-11 items-center justify-center rounded-2xl border border-border px-4 text-sm font-medium transition hover:bg-muted"
+                  class="action-pill-secondary h-11 px-4"
                   @click="showLogForm = false"
                 >
                   취소
                 </button>
                 <button
                   type="button"
-                  class="inline-flex h-11 items-center justify-center rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
+                  class="action-pill-primary h-11 px-4"
                   @click="handleAddLog"
                 >
                   저장
@@ -666,7 +666,7 @@ const handleSaveReview = () => {
             </div>
           </div>
 
-          <div v-if="book.logs.length === 0" class="mt-6 rounded-[24px] border border-dashed border-border bg-muted/30 p-8 text-center text-sm text-muted-foreground">
+          <div v-if="book.logs.length === 0" class="mt-6 rounded-[24px] border border-dashed border-white/10 bg-muted/30 p-8 text-center text-sm text-muted-foreground">
             아직 기록된 독서 로그가 없습니다.
           </div>
 
@@ -674,7 +674,7 @@ const handleSaveReview = () => {
             <article
               v-for="log in book.logs.slice().reverse()"
               :key="log.id"
-              class="rounded-[24px] border border-border/70 bg-background/60 p-5"
+              class="rounded-[24px] border border-white/10 bg-background/60 p-5"
             >
               <div class="flex flex-wrap items-center justify-between gap-3">
                 <p class="text-sm font-medium">{{ format(new Date(log.date), 'yyyy. M. d.') }}</p>
@@ -689,13 +689,13 @@ const handleSaveReview = () => {
         </section>
       </div>
 
-      <section class="rounded-[28px] border border-border/70 bg-card/90 p-6 shadow-sm">
+      <section class="panel">
         <div class="flex items-center justify-between gap-4">
           <div>
             <h2 class="text-xl font-semibold">리뷰와 별점</h2>
             <p class="text-sm text-muted-foreground">완독 후의 감상이나 재독 포인트를 남겨 두세요.</p>
           </div>
-          <span v-if="book.rating" class="rounded-full bg-amber-100 px-3 py-1 text-sm font-semibold text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+          <span v-if="book.rating" class="rounded-full border border-warning/30 bg-warning/10 px-3 py-1 text-sm font-semibold text-warning">
             {{ book.rating }}/5
           </span>
         </div>
@@ -708,7 +708,7 @@ const handleSaveReview = () => {
               :key="rating"
               type="button"
               :aria-label="`Rate ${rating} stars`"
-              class="rounded-xl p-1.5 transition hover:bg-muted"
+              class="rounded-xl p-1.5 transition hover:bg-white/5"
               @click="selectedRating = rating"
             >
               <Star
@@ -732,7 +732,7 @@ const handleSaveReview = () => {
           <textarea
             id="review"
             v-model="reviewDraft"
-            class="min-h-[180px] w-full rounded-2xl border border-input bg-background px-4 py-3 text-sm outline-none transition focus:border-primary"
+            class="field-shell min-h-[180px] px-4 py-3"
             placeholder="이 책에 대한 감상을 남겨보세요."
           />
         </label>
@@ -743,14 +743,14 @@ const handleSaveReview = () => {
           <button
             type="button"
             aria-label="Save review"
-            class="inline-flex h-11 items-center justify-center rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
+            class="action-pill-primary h-11 px-4"
             @click="handleSaveReview"
           >
             리뷰 저장
           </button>
         </div>
 
-        <div v-if="book.rating || book.review" class="mt-6 rounded-[24px] bg-muted/50 p-5">
+        <div v-if="book.rating || book.review" class="mt-6 rounded-[24px] border border-white/10 bg-muted/50 p-5">
           <div v-if="book.rating" class="flex items-center gap-1 text-amber-400" aria-label="Saved rating">
             <Star
               v-for="rating in 5"
@@ -767,7 +767,7 @@ const handleSaveReview = () => {
 
   <section
     v-else-if="deletedBook"
-    class="rounded-[30px] border border-border bg-card/90 p-8 shadow-sm"
+    class="hero-section p-8"
   >
     <div class="mx-auto flex max-w-xl flex-col gap-4 text-center sm:text-left">
       <div class="space-y-2">
@@ -781,14 +781,14 @@ const handleSaveReview = () => {
         <button
           type="button"
           aria-label="Undo delete"
-          class="inline-flex h-11 items-center justify-center rounded-2xl bg-primary px-5 text-sm font-semibold text-primary-foreground"
+          class="action-pill-primary h-11 px-5"
           @click="handleUndoDelete"
         >
           삭제 취소
         </button>
         <button
           type="button"
-          class="inline-flex h-11 items-center justify-center rounded-2xl border border-border px-5 text-sm font-medium transition hover:bg-muted"
+          class="action-pill-secondary h-11 px-5"
           @click="router.push('/books')"
         >
           서재로 이동
@@ -797,9 +797,9 @@ const handleSaveReview = () => {
     </div>
   </section>
 
-  <section v-else class="rounded-[30px] border border-dashed border-border bg-card/80 p-12 text-center">
+  <section v-else class="hero-section border-dashed p-12 text-center">
     <div class="mx-auto flex max-w-md flex-col items-center gap-4">
-      <div class="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+      <div class="flex h-16 w-16 items-center justify-center rounded-full border border-white/10 bg-secondary/70">
         <BookOpen class="h-7 w-7 text-muted-foreground" />
       </div>
       <h1 class="text-2xl font-semibold">책을 찾을 수 없습니다.</h1>
@@ -808,7 +808,7 @@ const handleSaveReview = () => {
       </p>
       <RouterLink
         to="/books"
-        class="inline-flex h-11 items-center justify-center rounded-2xl bg-primary px-5 text-sm font-semibold text-primary-foreground"
+        class="action-pill-primary h-11 px-5"
       >
         서재로 이동
       </RouterLink>

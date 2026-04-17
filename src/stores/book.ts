@@ -501,17 +501,17 @@ export const useBookStore = defineStore('book', () => {
   }
 
   const cycleTheme = () => {
-    if (theme.value === 'system') {
+    if (theme.value === 'light') {
       theme.value = 'dark'
       return
     }
 
     if (theme.value === 'dark') {
-      theme.value = 'light'
+      theme.value = 'system'
       return
     }
 
-    theme.value = 'system'
+    theme.value = 'light'
   }
 
   const setTheme = (nextTheme: ThemePreference) => {

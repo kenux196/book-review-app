@@ -113,25 +113,31 @@ const applyBackupImport = () => {
 </script>
 
 <template>
-  <div class="space-y-8">
-    <section class="grid gap-6 rounded-[30px] border border-border/70 bg-card/90 p-6 shadow-sm lg:grid-cols-[minmax(0,1fr)_280px]">
+  <div class="page-grid">
+    <section class="hero-section grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px]">
       <div class="space-y-4">
-        <span class="inline-flex w-fit items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-primary">
+        <span class="hero-badge">
           <Sparkles class="h-3.5 w-3.5" />
           대시보드
         </span>
         <div class="space-y-3">
-          <h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">독서의 현재 위치를 빠르게 확인하세요.</h1>
-          <p class="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
+          <h1 class="max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">독서의 현재 위치를 빠르게 확인하세요.</h1>
+          <p class="max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
             읽는 중인 책, 완독한 책, 누적 페이지를 한 화면에서 보고 바로 다음 액션으로 이어갈 수 있습니다.
           </p>
         </div>
+        <div class="flex flex-wrap items-center gap-3 pt-2 text-sm text-muted-foreground">
+          <span class="code-kbd">Command</span>
+          <span class="code-kbd">K</span>
+          <span>대신 지금은 대시보드에서 바로 다음 읽기 흐름을 선택합니다.</span>
+        </div>
       </div>
 
-      <div class="rounded-[26px] bg-muted/60 p-5">
+      <div class="panel-muted relative overflow-hidden">
+        <div class="surface-stripe absolute inset-y-0 right-0 w-20 opacity-40" />
         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">이어 읽기</p>
         <p class="mt-3 text-sm leading-6 text-foreground/90">{{ readingStreakHint }}</p>
-        <div v-if="featuredReadingBook" class="mt-4 rounded-2xl bg-background px-4 py-3">
+        <div v-if="featuredReadingBook" class="mt-4 rounded-2xl border border-white/10 bg-background/80 px-4 py-3">
           <p class="text-sm font-semibold">{{ featuredReadingBook.title }}</p>
           <p class="mt-1 text-xs text-muted-foreground">
             {{ featuredReadingBook.currentPage }} / {{ featuredReadingBook.totalPages }} 페이지 · 로그 {{ featuredReadingBook.logs.length }}개
@@ -139,7 +145,7 @@ const applyBackupImport = () => {
         </div>
         <RouterLink
           :to="nextActionLink"
-          class="mt-5 inline-flex h-11 items-center justify-center rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
+          class="action-pill-primary mt-5 h-11 px-4"
         >
           {{ nextActionLabel }}
         </RouterLink>
@@ -147,28 +153,28 @@ const applyBackupImport = () => {
     </section>
 
     <section class="grid gap-4 md:grid-cols-3">
-      <article class="rounded-[26px] border border-border/70 bg-card/90 p-5 shadow-sm">
+      <article class="metric-card">
         <div class="flex items-center justify-between">
           <p class="text-sm font-medium text-muted-foreground">지금 읽는 책</p>
-          <BookOpen class="h-4 w-4 text-muted-foreground" />
+          <BookOpen class="h-4 w-4 text-info" />
         </div>
         <p class="mt-4 text-3xl font-semibold">{{ bookStore.readingBooks.length }}</p>
         <p class="mt-2 text-sm text-muted-foreground">현재 진행 중인 책 수</p>
       </article>
 
-      <article class="rounded-[26px] border border-border/70 bg-card/90 p-5 shadow-sm">
+      <article class="metric-card">
         <div class="flex items-center justify-between">
           <p class="text-sm font-medium text-muted-foreground">완독한 책</p>
-          <CheckCircle2 class="h-4 w-4 text-muted-foreground" />
+          <CheckCircle2 class="h-4 w-4 text-success" />
         </div>
         <p class="mt-4 text-3xl font-semibold">{{ bookStore.readBooks.length }}</p>
         <p class="mt-2 text-sm text-muted-foreground">완독한 책 수</p>
       </article>
 
-      <article class="rounded-[26px] border border-border/70 bg-card/90 p-5 shadow-sm">
+      <article class="metric-card">
         <div class="flex items-center justify-between">
           <p class="text-sm font-medium text-muted-foreground">누적 페이지</p>
-          <BookCopy class="h-4 w-4 text-muted-foreground" />
+          <BookCopy class="h-4 w-4 text-primary" />
         </div>
         <p class="mt-4 text-3xl font-semibold">{{ totalPagesRead }}</p>
         <p class="mt-2 text-sm text-muted-foreground">전체 책에서 누적한 페이지 수</p>
@@ -180,11 +186,11 @@ const applyBackupImport = () => {
       <MonthlyStats />
     </div>
 
-    <section class="grid gap-6 rounded-[30px] border border-border/70 bg-card/90 p-6 shadow-sm lg:grid-cols-[minmax(0,1fr)_320px]">
+    <section class="panel grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div class="space-y-4">
         <div>
           <h2 class="text-2xl font-semibold tracking-tight">백업 및 복원</h2>
-          <p class="mt-2 text-sm leading-6 text-muted-foreground">
+          <p class="mt-2 text-sm leading-7 text-muted-foreground">
             브라우저를 바꾸거나 데이터를 정리하기 전에 전체 서재를 JSON 파일로 내보내세요. 가져오기 전에는 책 수와 상태를 미리 확인할 수 있습니다.
           </p>
         </div>
@@ -192,14 +198,14 @@ const applyBackupImport = () => {
         <div class="flex flex-wrap gap-3">
           <button
             type="button"
-            class="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
+            class="action-pill-primary h-11 px-4"
             @click="handleExportBackup"
           >
             <Download class="h-4 w-4" />
             JSON 백업 다운로드
           </button>
 
-          <label class="inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-2xl border border-border bg-background px-4 text-sm font-semibold text-foreground transition hover:bg-muted">
+          <label class="action-pill-secondary h-11 cursor-pointer px-4">
             <Upload class="h-4 w-4" />
             백업 파일 선택
             <input
@@ -216,7 +222,7 @@ const applyBackupImport = () => {
         <p v-if="backupError" class="text-sm text-rose-600 dark:text-rose-400">{{ backupError }}</p>
       </div>
 
-      <div class="rounded-[26px] bg-muted/60 p-5">
+      <div class="panel-muted">
         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">복원 미리보기</p>
         <div v-if="importPreview" class="mt-4 space-y-4">
           <div>
@@ -227,19 +233,19 @@ const applyBackupImport = () => {
           </div>
 
           <dl class="grid grid-cols-2 gap-3 text-sm">
-            <div class="rounded-2xl bg-background px-3 py-2">
+            <div class="rounded-2xl border border-white/10 bg-background/85 px-3 py-2">
               <dt class="text-xs text-muted-foreground">총 책</dt>
               <dd class="mt-1 font-semibold">{{ importPreview.totalBooks }}권</dd>
             </div>
-            <div class="rounded-2xl bg-background px-3 py-2">
+            <div class="rounded-2xl border border-white/10 bg-background/85 px-3 py-2">
               <dt class="text-xs text-muted-foreground">읽는 중</dt>
               <dd class="mt-1 font-semibold">{{ importPreview.readingBooks }}권</dd>
             </div>
-            <div class="rounded-2xl bg-background px-3 py-2">
+            <div class="rounded-2xl border border-white/10 bg-background/85 px-3 py-2">
               <dt class="text-xs text-muted-foreground">완독</dt>
               <dd class="mt-1 font-semibold">{{ importPreview.readBooks }}권</dd>
             </div>
-            <div class="rounded-2xl bg-background px-3 py-2">
+            <div class="rounded-2xl border border-white/10 bg-background/85 px-3 py-2">
               <dt class="text-xs text-muted-foreground">테마</dt>
               <dd class="mt-1 font-semibold">
                 {{ importPreview.theme === 'system' ? '시스템' : importPreview.theme === 'dark' ? '다크' : '라이트' }}
@@ -249,14 +255,14 @@ const applyBackupImport = () => {
 
           <fieldset class="space-y-2">
             <legend class="text-sm font-semibold">복원 방식</legend>
-            <label class="flex items-start gap-3 rounded-2xl border border-border bg-background px-3 py-3">
+            <label class="flex items-start gap-3 rounded-2xl border border-white/10 bg-background/85 px-3 py-3">
               <input v-model="importMode" type="radio" value="merge" class="mt-1" >
               <span>
                 <span class="block text-sm font-semibold">병합</span>
                 <span class="block text-xs leading-5 text-muted-foreground">현재 서재를 유지한 채 같은 ID는 덮어쓰고 새 책은 추가합니다.</span>
               </span>
             </label>
-            <label class="flex items-start gap-3 rounded-2xl border border-border bg-background px-3 py-3">
+            <label class="flex items-start gap-3 rounded-2xl border border-white/10 bg-background/85 px-3 py-3">
               <input v-model="importMode" type="radio" value="overwrite" class="mt-1" >
               <span>
                 <span class="block text-sm font-semibold">덮어쓰기</span>
@@ -267,7 +273,7 @@ const applyBackupImport = () => {
 
           <button
             type="button"
-            class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-foreground px-4 text-sm font-semibold text-background"
+            class="action-pill-secondary h-11 w-full"
             @click="applyBackupImport"
           >
             <RotateCcw class="h-4 w-4" />
@@ -275,7 +281,7 @@ const applyBackupImport = () => {
           </button>
         </div>
 
-        <div v-else class="mt-4 rounded-2xl border border-dashed border-border bg-background/60 px-4 py-6 text-sm leading-6 text-muted-foreground">
+        <div v-else class="mt-4 rounded-2xl border border-dashed border-white/10 bg-background/60 px-4 py-6 text-sm leading-6 text-muted-foreground">
           백업 JSON 파일을 선택하면 복원 전 책 수와 테마를 여기에서 확인할 수 있습니다.
         </div>
       </div>
@@ -290,9 +296,9 @@ const applyBackupImport = () => {
         <RouterLink to="/books" class="text-sm font-medium text-primary transition hover:opacity-80">서재 전체 보기</RouterLink>
       </div>
 
-      <div v-if="bookStore.readingBooks.length === 0" class="rounded-[28px] border border-dashed border-border bg-card/70 p-10 text-center">
+      <div v-if="bookStore.readingBooks.length === 0" class="panel border-dashed text-center">
         <div class="mx-auto flex max-w-md flex-col items-center gap-3">
-          <div class="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+          <div class="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-secondary/70">
             <LibraryBig class="h-6 w-6 text-muted-foreground" />
           </div>
           <h3 class="text-xl font-semibold">지금 읽는 책이 없습니다.</h3>
@@ -301,7 +307,7 @@ const applyBackupImport = () => {
           </p>
           <RouterLink
             to="/books"
-            class="inline-flex h-11 items-center justify-center rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
+            class="action-pill-primary h-11 px-4"
           >
             책 추가하거나 시작하기
           </RouterLink>
@@ -313,7 +319,7 @@ const applyBackupImport = () => {
           v-for="book in bookStore.readingBooks"
           :key="book.id"
           :to="`/books/${book.id}`"
-          class="overflow-hidden rounded-[28px] border border-border/70 bg-card/90 p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
+          class="panel transition hover:-translate-y-0.5"
         >
           <div class="flex items-start justify-between gap-4">
             <div>

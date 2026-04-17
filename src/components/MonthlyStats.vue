@@ -64,7 +64,7 @@ const totalBooksThisYear = computed(() =>
 </script>
 
 <template>
-  <div class="rounded-[28px] border border-border/70 bg-card/90 p-6 shadow-sm">
+  <div class="panel">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
         <h2 class="text-xl font-semibold">월간 통계</h2>
@@ -72,17 +72,17 @@ const totalBooksThisYear = computed(() =>
       </div>
 
       <!-- 탭 전환 -->
-      <div class="flex gap-1 rounded-2xl bg-muted p-1 text-sm">
+      <div class="flex gap-1 rounded-full border border-white/10 bg-white/[0.03] p-1 text-sm">
         <button
           type="button"
-          :class="['h-8 rounded-xl px-3 font-medium transition', activeMetric === 'pages' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground']"
+          :class="['h-8 rounded-full px-3 font-medium transition', activeMetric === 'pages' ? 'bg-white/[0.06] text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_0_1px_rgba(255,255,255,0.08)]' : 'text-muted-foreground hover:text-foreground']"
           @click="activeMetric = 'pages'"
         >
           페이지
         </button>
         <button
           type="button"
-          :class="['h-8 rounded-xl px-3 font-medium transition', activeMetric === 'books' ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground']"
+          :class="['h-8 rounded-full px-3 font-medium transition', activeMetric === 'books' ? 'bg-white/[0.06] text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_0_0_1px_rgba(255,255,255,0.08)]' : 'text-muted-foreground hover:text-foreground']"
           @click="activeMetric = 'books'"
         >
           권수
@@ -111,13 +111,13 @@ const totalBooksThisYear = computed(() =>
         style="height: 100%"
       >
         <!-- 툴팁 -->
-        <div class="pointer-events-none absolute bottom-full mb-1.5 hidden rounded-xl border border-border bg-card px-2 py-1 text-center text-xs shadow-sm group-hover:block">
+        <div class="pointer-events-none absolute bottom-full mb-1.5 hidden rounded-xl border border-white/10 bg-card px-2 py-1 text-center text-xs shadow-sm group-hover:block">
           <p class="font-semibold">{{ item.value.toLocaleString() }}{{ activeMetric === 'pages' ? 'p' : '권' }}</p>
         </div>
         <!-- 바 -->
         <div
           :style="{ height: `${Math.max((item.value / maxValue) * 100, item.value > 0 ? 4 : 2)}%` }"
-          :class="['w-full rounded-t-md transition-all', item.value > 0 ? 'bg-primary' : 'bg-muted']"
+          :class="['w-full rounded-t-md transition-all', item.value > 0 ? 'bg-[linear-gradient(180deg,rgba(255,99,99,0.9),rgba(255,99,99,0.45))]' : 'bg-muted']"
         />
       </div>
     </div>

@@ -66,9 +66,10 @@ test('adds a new book from the library form', async ({ page }) => {
   await page.getByPlaceholder('https://example.com/cover.jpg').fill('https://example.com/ddd.jpg')
   await page.getByRole('button', { name: '저장' }).click()
 
-  await expect(page.getByText('Domain-Driven Design')).toBeVisible()
-  await expect(page.getByText('Eric Evans')).toBeVisible()
   const newBookCard = page.getByRole('link', { name: /Domain-Driven Design/ })
+  await expect(newBookCard).toBeVisible()
+  await expect(newBookCard.getByText('Domain-Driven Design')).toBeVisible()
+  await expect(newBookCard.getByText('Eric Evans')).toBeVisible()
   await expect(newBookCard.getByText('읽는 중')).toBeVisible()
   await expect(newBookCard.getByText('23%')).toBeVisible()
 })
@@ -78,9 +79,9 @@ test('filters and sorts books in the library', async ({ page }) => {
 
   await page.getByPlaceholder('책 제목, 저자, 태그 검색').fill('Martin')
   await page.locator('select').nth(0).selectOption('READING')
-  await page.getByLabel('Sort books').selectOption('TITLE_ASC')
+  await page.getByTestId('book-sort-select').selectOption('TITLE_ASC')
 
-  await expect(page.getByText('Refactoring')).toBeVisible()
+  await expect(page.getByRole('link', { name: /Refactoring/ })).toBeVisible()
   await expect(page.getByText('Clean Code')).not.toBeVisible()
   await expect(page.getByText('Atomic Habits')).not.toBeVisible()
 })
@@ -140,10 +141,11 @@ test('tags are searchable in the library', async ({ page }) => {
   await page.goto('/books/book-1')
   await page.getByPlaceholder('태그 입력 후 Enter').fill('개발')
   await page.getByPlaceholder('태그 입력 후 Enter').press('Enter')
+  await page.waitForTimeout(300)
 
   await page.goto('/books')
   await page.getByPlaceholder('책 제목, 저자, 태그 검색').fill('개발')
-  await expect(page.getByText('Clean Code')).toBeVisible()
+  await expect(page.getByRole('link', { name: /Clean Code/ })).toBeVisible()
   await expect(page.getByText('Refactoring')).not.toBeVisible()
 })
 
@@ -171,16 +173,16 @@ test('persists new book after page reload', async ({ page }) => {
   await page.goto('/books')
 
   await page.getByRole('button', { name: '책 추가' }).click()
-  await page.getByPlaceholder('책 제목').fill('The Pragmatic Programmer')
+  await page.getByRole('textbox', { name: '제목' }).fill('The Pragmatic Programmer')
   await page.getByPlaceholder('저자명').fill('David Thomas')
   await page.getByPlaceholder('전체 페이지 수').fill('352')
   await page.getByRole('button', { name: '저장' }).click()
-  await expect(page.getByText('The Pragmatic Programmer')).toBeVisible()
+  await expect(page.getByRole('link', { name: /The Pragmatic Programmer/ })).toBeVisible()
 
   // Wait for async IndexedDB save to complete before reload
   await page.waitForTimeout(300)
   await page.reload()
-  await expect(page.getByText('The Pragmatic Programmer')).toBeVisible()
+  await expect(page.getByRole('link', { name: /The Pragmatic Programmer/ })).toBeVisible()
 })
 
 test('dashboard shows currently reading book', async ({ page }) => {
@@ -188,7 +190,7 @@ test('dashboard shows currently reading book', async ({ page }) => {
 
   const readingNowCard = page.locator('article').filter({ hasText: '지금 읽는 책' })
   await expect(readingNowCard.getByText('1')).toBeVisible()
-  await expect(page.getByText('Refactoring')).toBeVisible()
+  await expect(page.getByRole('link', { name: /Refactoring/ })).toBeVisible()
 })
 
 test('changes book status and persists after reload', async ({ page }) => {

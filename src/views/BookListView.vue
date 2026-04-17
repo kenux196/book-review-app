@@ -196,15 +196,15 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="space-y-8">
-    <section class="flex flex-col gap-5 rounded-[28px] border border-border/70 bg-card/80 p-6 shadow-sm shadow-slate-200/40 dark:shadow-black/20 lg:flex-row lg:items-end lg:justify-between">
+  <div class="page-grid">
+    <section class="hero-section flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
       <div class="space-y-3">
-        <span class="inline-flex w-fit items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-primary">
+        <span class="hero-badge">
           내 서재
         </span>
         <div class="space-y-2">
-          <h1 class="text-3xl font-semibold tracking-tight sm:text-4xl">읽은 책, 읽는 책, 읽고 싶은 책을 한 번에 관리하세요.</h1>
-          <p class="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">
+          <h1 class="max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">읽은 책, 읽는 책, 읽고 싶은 책을 한 번에 관리하세요.</h1>
+          <p class="max-w-2xl text-sm leading-7 text-muted-foreground sm:text-base">
             빠르게 등록하고, 상태를 나누고, 진행률과 별점을 보면서 지금의 독서 흐름을 정리할 수 있습니다.
           </p>
         </div>
@@ -212,7 +212,7 @@ onBeforeUnmount(() => {
 
       <button
         type="button"
-        class="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-primary px-5 text-sm font-semibold text-primary-foreground transition hover:opacity-95"
+        class="action-pill-primary h-12 px-5"
         @click="showAddForm = !showAddForm"
       >
         <Plus class="h-4 w-4" />
@@ -220,7 +220,7 @@ onBeforeUnmount(() => {
       </button>
     </section>
 
-    <section v-if="showAddForm" class="rounded-[28px] border border-border/70 bg-card/90 p-6 shadow-sm">
+    <section v-if="showAddForm" class="panel">
       <div class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 class="text-xl font-semibold">새 책 추가</h2>
@@ -235,7 +235,7 @@ onBeforeUnmount(() => {
           <input
             v-model="newBook.title"
             placeholder="책 제목"
-            class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
+            class="field-shell"
           />
         </label>
 
@@ -244,7 +244,7 @@ onBeforeUnmount(() => {
           <input
             v-model="newBook.author"
             placeholder="저자명"
-            class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
+            class="field-shell"
           />
         </label>
 
@@ -255,7 +255,7 @@ onBeforeUnmount(() => {
             type="number"
             min="1"
             placeholder="전체 페이지 수"
-            class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
+            class="field-shell"
           />
         </label>
 
@@ -265,7 +265,7 @@ onBeforeUnmount(() => {
             <select
               :value="newBook.status"
               aria-label="초기 상태"
-              class="h-11 w-full appearance-none rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
+              class="field-shell appearance-none"
               @change="handleDraftStatusChange"
             >
               <option
@@ -287,7 +287,7 @@ onBeforeUnmount(() => {
             v-model="newBook.coverUrl"
             type="url"
             placeholder="https://example.com/cover.jpg"
-            class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
+            class="field-shell"
           />
         </label>
 
@@ -299,14 +299,14 @@ onBeforeUnmount(() => {
             min="1"
             :max="newBook.totalPages || undefined"
             placeholder="현재 페이지"
-            class="h-11 w-full rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
+            class="field-shell"
           />
           <p class="text-xs leading-5 text-muted-foreground">{{ progressFieldDescription }}</p>
         </label>
 
         <div
           v-else-if="newBook.status === 'READ'"
-          class="rounded-2xl border border-emerald-200/70 bg-emerald-50/70 p-4 text-sm text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200"
+          class="rounded-2xl border border-success/30 bg-success/10 p-4 text-sm text-success"
         >
           저장하면 완독 상태로 추가되고 진행률은 <span class="font-semibold">100%</span>로 설정됩니다.
         </div>
@@ -315,14 +315,14 @@ onBeforeUnmount(() => {
       <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
         <button
           type="button"
-          class="inline-flex h-11 items-center justify-center rounded-2xl border border-border px-4 text-sm font-medium transition hover:bg-muted"
+          class="action-pill-secondary h-11 px-4"
           @click="showAddForm = false; resetForm()"
         >
           취소
         </button>
         <button
           type="button"
-          class="inline-flex h-11 items-center justify-center rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground transition hover:opacity-95"
+          class="action-pill-primary h-11 px-4"
           @click="handleAddBook"
         >
           저장
@@ -332,7 +332,7 @@ onBeforeUnmount(() => {
 
     <section
       v-if="addSuccessMessage"
-      class="flex flex-col gap-3 rounded-[24px] border border-emerald-200/70 bg-emerald-50/80 p-4 text-sm text-emerald-900 shadow-sm dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100 sm:flex-row sm:items-center sm:justify-between"
+      class="panel border-success/30 bg-success/10 text-sm text-success sm:flex sm:items-center sm:justify-between"
     >
       <div class="space-y-1">
         <p class="font-semibold">{{ addSuccessMessage }}</p>
@@ -342,13 +342,13 @@ onBeforeUnmount(() => {
         <RouterLink
           v-if="lastAddedBookId"
           :to="`/books/${lastAddedBookId}`"
-          class="inline-flex h-10 items-center justify-center rounded-2xl bg-emerald-600 px-4 font-semibold text-white transition hover:bg-emerald-700"
+          class="action-pill-primary h-10 px-4"
         >
           바로 보기
         </RouterLink>
         <button
           type="button"
-          class="inline-flex h-10 items-center justify-center rounded-2xl border border-emerald-300/70 px-4 font-medium transition hover:bg-white/50 dark:border-emerald-400/30 dark:hover:bg-emerald-500/10"
+          class="action-pill-secondary h-10 px-4"
           @click="clearAddSuccess"
         >
           닫기
@@ -356,20 +356,20 @@ onBeforeUnmount(() => {
       </div>
     </section>
 
-    <section class="grid gap-3 rounded-[28px] border border-border/70 bg-card/80 p-4 shadow-sm md:grid-cols-[minmax(0,1fr)_200px_200px]">
+    <section class="panel grid gap-3 p-4 md:grid-cols-[minmax(0,1fr)_200px_200px]">
       <label class="relative">
         <Search class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input
           v-model="searchQuery"
           placeholder="책 제목, 저자, 태그 검색"
-          class="h-11 w-full rounded-2xl border border-input bg-background pl-11 pr-4 text-sm outline-none transition focus:border-primary"
+          class="field-shell pl-11 pr-4"
         />
       </label>
 
       <label class="relative">
         <select
           v-model="statusFilter"
-          class="h-11 w-full appearance-none rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
+          class="field-shell appearance-none"
         >
           <option value="ALL">모든 상태</option>
           <option value="TO_READ">읽을 책</option>
@@ -384,7 +384,8 @@ onBeforeUnmount(() => {
         <select
           v-model="sortKey"
           aria-label="정렬 기준"
-          class="h-11 w-full appearance-none rounded-2xl border border-input bg-background px-4 text-sm outline-none transition focus:border-primary"
+          data-testid="book-sort-select"
+          class="field-shell appearance-none"
         >
           <option v-for="option in sortOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
         </select>
@@ -397,17 +398,17 @@ onBeforeUnmount(() => {
         v-for="book in filteredBooks"
         :key="book.id"
         :to="`/books/${book.id}`"
-        class="group overflow-hidden rounded-[28px] border border-border/70 bg-card/90 shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg"
+          class="panel group overflow-hidden p-0 transition hover:-translate-y-0.5"
       >
         <div class="grid min-h-[220px] grid-cols-[112px_minmax(0,1fr)]">
-          <div class="relative flex items-center justify-center overflow-hidden bg-muted">
+            <div class="relative flex items-center justify-center overflow-hidden bg-secondary/70">
             <img
               v-if="book.coverUrl"
               :src="book.coverUrl"
               :alt="`${book.title} cover`"
               class="h-full w-full object-cover"
             />
-            <div v-else class="flex h-full w-full flex-col items-center justify-center gap-3 bg-[linear-gradient(180deg,rgba(148,163,184,0.18),transparent)] text-muted-foreground">
+              <div v-else class="flex h-full w-full flex-col items-center justify-center gap-3 bg-[linear-gradient(180deg,rgba(85,179,255,0.1),transparent)] text-muted-foreground">
               <BookIcon class="h-10 w-10" />
               <span class="text-[11px] font-semibold uppercase tracking-[0.24em]">표지 없음</span>
             </div>
@@ -440,11 +441,11 @@ onBeforeUnmount(() => {
                 <span
                   v-for="tag in book.tags.slice(0, 3)"
                   :key="tag"
-                  class="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary"
+                  class="rounded-full border border-white/10 bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary"
                 >
                   {{ tag }}
                 </span>
-                <span v-if="book.tags.length > 3" class="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                <span v-if="book.tags.length > 3" class="rounded-full border border-white/10 bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
                   +{{ book.tags.length - 3 }}
                 </span>
               </div>
@@ -455,9 +456,9 @@ onBeforeUnmount(() => {
                 <span>{{ book.currentPage }} / {{ book.totalPages }} 페이지</span>
                 <span>로그 {{ book.logs.length }}개</span>
               </div>
-              <div class="h-2 rounded-full bg-muted">
+              <div class="h-2 rounded-full bg-muted/80">
                 <div
-                  class="h-full rounded-full bg-primary transition-all"
+                  class="h-full rounded-full bg-[linear-gradient(90deg,rgba(255,99,99,0.95),rgba(85,179,255,0.85))] transition-all"
                   :style="{ width: `${getProgress(book.currentPage, book.totalPages)}%` }"
                 />
               </div>
@@ -467,9 +468,9 @@ onBeforeUnmount(() => {
       </RouterLink>
     </section>
 
-    <section v-else class="rounded-[28px] border border-dashed border-border bg-card/60 p-10 text-center">
+    <section v-else class="panel border-dashed text-center">
       <div class="mx-auto flex max-w-md flex-col items-center gap-3">
-        <div class="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+        <div class="flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-secondary/70">
           <BookIcon class="h-6 w-6 text-muted-foreground" />
         </div>
         <h2 class="text-xl font-semibold">조건에 맞는 책이 없습니다.</h2>
