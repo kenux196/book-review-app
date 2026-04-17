@@ -43,8 +43,18 @@
 
 - **완독 권수**: 연간/월간 완독 권수 시각화 (바 차트, Pages/Books 탭 전환).
 - **독서 달력**: 날짜별 독서 활동 히트맵 (GitHub 잔디 스타일, 52주).
+- **백업/복원**:
+  - 현재 서재와 테마 설정을 JSON 파일로 내보내기.
+  - 백업 파일을 미리보기 후 병합 또는 덮어쓰기 방식으로 복원.
 
-### 3.5 도서 검색 API 연동 (Book Search) 🔜 예정
+### 3.5 데이터 안정성 및 복구 (Data Safety) ✅
+
+- **삭제 복구**:
+  - 책 삭제 후 5초 동안 실행 취소(undo) 가능.
+- **레거시 데이터 마이그레이션**:
+  - 기존 `localStorage` 데이터를 첫 실행 시 IndexedDB로 자동 이전.
+
+### 3.6 도서 검색 API 연동 (Book Search) 🔜 예정
 
 - 책 등록 시 제목/저자/ISBN으로 외부 API 검색.
 - 검색 결과에서 선택 시 표지 이미지, 저자, 페이지수 자동 입력.
@@ -57,7 +67,7 @@
 
 - **디자인 컨셉**: 깔끔하고 모던한 디자인, 집중을 돕는 차분한 컬러 팔레트.
 - **반응형 웹**: 데스크탑 및 모바일 환경 최적화.
-- **다크 모드**: 야간 독서 기록을 위한 다크 모드 지원. ✅
+- **테마**: 시스템 설정을 기본값으로 따르며, 사용자가 `시스템 / 라이트 / 다크`를 선택 가능. ✅
 
 ## 5. 기술적 요구사항 (Technical Requirements)
 
@@ -67,6 +77,8 @@
   - ~~LocalStorage (MVP)~~ → **IndexedDB (Dexie 4.x)** ✅
   - BookRepository 패턴으로 persistence layer 추상화 (Supabase 전환 대비)
   - 기존 localStorage 데이터 첫 실행 시 자동 마이그레이션
+- **Backup Format**:
+  - 버전(`version`), 내보낸 시각(`exportedAt`), 테마(`theme`), 책 목록(`books`)을 포함한 JSON 백업 지원
 - **Testing**: Vitest (unit), Playwright (E2E, 11개 시나리오)
 
 ## 6. 향후 확장 고려 (Future Scope)

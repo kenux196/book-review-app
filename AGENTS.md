@@ -1,11 +1,11 @@
-<!-- Generated: 2026-04-10 | Updated: 2026-04-10 -->
+<!-- Generated: 2026-04-10 | Updated: 2026-04-17 -->
 
 # book-review-app (BookLog)
 
 ## Purpose
 독서 기록 관리 앱(BookLog). Vue 3 + TypeScript + Pinia + Tailwind CSS 기반의 클라이언트 전용 SPA.
 책 추가/수정/삭제, 독서 진행률 추적, 독서 일지 작성, 별점/리뷰, 대시보드 통계를 제공한다.
-데이터는 localStorage에 저장되며 별도 백엔드 없이 동작한다.
+데이터는 IndexedDB(Dexie)에 저장되며 별도 백엔드 없이 동작한다. 기존 localStorage 데이터는 첫 실행 시 자동 마이그레이션된다.
 
 ## Key Files
 
@@ -50,7 +50,7 @@ yarn build               # TypeScript 검증 + 프로덕션 빌드
 - 컴포넌트/뷰: Vue 3 Composition API (`<script setup>`)
 - 상태 관리: Pinia store (composable 스타일)
 - 스타일: Tailwind utility classes + CSS 변수 다크모드
-- 데이터 지속: `localStorage` (`booklog-books`, `booklog-theme` 키)
+- 데이터 지속: IndexedDB (`books`, `settings`), 레거시 키 `booklog-books`/`booklog-theme` 자동 이전
 
 ## Dependencies
 
@@ -75,4 +75,4 @@ Recent history uses short, imperative commits with prefixes such as `docs:`, `ci
 - screenshots for UI changes affecting `src/views/`
 
 ## Architecture & Configuration Notes
-The app is a client-only MVP using Pinia plus `localStorage` persistence with the key `booklog-books`. Avoid introducing secrets into the frontend; use Vite env vars only for public client configuration.
+The app is a client-only MVP using Pinia plus an IndexedDB-backed `BookRepository` abstraction. Legacy `localStorage` data (`booklog-books`, `booklog-theme`) is migrated on first run. Avoid introducing secrets into the frontend; use Vite env vars only for public client configuration.
