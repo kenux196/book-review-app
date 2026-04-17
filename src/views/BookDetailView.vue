@@ -31,6 +31,7 @@ const currentPageError = ref('')
 const showDeleteConfirm = ref(false)
 const undoCountdownSeconds = ref(0)
 let undoCountdownTimer: ReturnType<typeof setInterval> | null = null
+let reviewMessageTimer: ReturnType<typeof setTimeout> | null = null
 
 const showLogForm = ref(false)
 const logError = ref('')
@@ -107,6 +108,9 @@ watch(
 
 onBeforeUnmount(() => {
   stopUndoCountdown()
+  if (reviewMessageTimer) {
+    clearTimeout(reviewMessageTimer)
+  }
 })
 
 const progressPercentage = computed(() => {
@@ -114,12 +118,17 @@ const progressPercentage = computed(() => {
   return Math.round((book.value.currentPage / book.value.totalPages) * 100)
 })
 
-const statusOptions: { value: BookStatus; label: string }[] = [
-  { value: 'TO_READ', label: '읽을 책' },
-  { value: 'READING', label: '읽는 중' },
-  { value: 'READ', label: '완독' },
-  { value: 'STOPPED', label: '중단' },
+const statusOptions: { value: BookStatus; label: string; description: string }[] = [
+  { value: 'TO_READ', label: '읽을 책', description: '읽기 전 목록에 보관하는 상태입니다.' },
+  { value: 'READING', label: '읽는 중', description: '지금 읽고 있는 책으로 진행률과 로그가 계속 쌓입니다.' },
+  { value: 'READ', label: '완독', description: '끝까지 읽은 책으로 완료일과 별점 리뷰를 남기기 좋습니다.' },
+  { value: 'STOPPED', label: '보류 중', description: '포기보다는 잠시 멈춘 상태로, 나중에 다시 이어 읽을 수 있습니다.' },
 ]
+const defaultStatusOption = statusOptions[0]!
+
+const currentStatusOption = computed(() => {
+  return statusOptions.find(option => option.value === book.value?.status) ?? defaultStatusOption
+})
 
 const formatDate = (value?: string) => {
   return value ? format(new Date(value), 'yyyy. M. d.') : '-'
@@ -277,6 +286,15 @@ const handleSaveReview = () => {
   }
 
   reviewMessage.value = '리뷰와 별점을 저장했습니다.'
+
+  if (reviewMessageTimer) {
+    clearTimeout(reviewMessageTimer)
+  }
+
+  reviewMessageTimer = setTimeout(() => {
+    reviewMessage.value = ''
+    reviewMessageTimer = null
+  }, 2500)
 }
 </script>
 
@@ -427,6 +445,8 @@ const handleSaveReview = () => {
           </div>
         </div>
 
+        <p class="text-sm text-muted-foreground">{{ currentStatusOption.description }}</p>
+
         <div
           v-if="showDeleteConfirm"
           class="rounded-[24px] border border-destructive/30 bg-destructive/5 p-4"
@@ -529,6 +549,7 @@ const handleSaveReview = () => {
           <div class="h-3 rounded-full bg-muted">
             <div class="h-full rounded-full bg-primary transition-all" :style="{ width: `${progressPercentage}%` }" />
           </div>
+          <p class="text-xs text-muted-foreground">최근 로그 {{ book.logs.length }}개가 누적되어 있습니다.</p>
         </div>
 
         <div class="space-y-2">

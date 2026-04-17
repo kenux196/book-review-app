@@ -53,4 +53,24 @@ describe('DashboardView', () => {
     expect(wrapper.text()).toContain('Reading Book')
     expect(wrapper.text()).toContain('150 / 300 페이지')
   })
+
+  it('links the top CTA directly to the active reading book', async () => {
+    const store = useBookStore()
+    store.addBook({ title: 'Current Book', author: 'Author', totalPages: 280, status: 'READING', currentPage: 88 })
+
+    const router = createTestRouter()
+    await router.push('/')
+    await router.isReady()
+
+    const wrapper = mount(DashboardView, {
+      global: { plugins: [router] },
+    })
+
+    const continueLink = wrapper.findAllComponents({ name: 'RouterLink' })
+      .find(link => link.text() === '이어 읽기')
+
+    expect(continueLink?.props('to')).toBe(`/books/${store.readingBooks[0]?.id}`)
+    expect(wrapper.text()).toContain('Current Book')
+    expect(wrapper.text()).toContain('88 / 280 페이지')
+  })
 })

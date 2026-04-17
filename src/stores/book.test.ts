@@ -245,6 +245,102 @@ describe('useBookStore', () => {
     expect(document.documentElement.classList.contains('dark')).toBe(true)
   })
 
+  it('exports a backup payload with books and theme metadata', async () => {
+    const store = useBookStore()
+    await store.initialize()
+
+    store.addBook({ title: 'Backup Book', author: 'Author', totalPages: 240, status: 'READING', currentPage: 80 })
+    store.setTheme('dark')
+
+    const backup = JSON.parse(store.exportBackup()) as {
+      version: number
+      exportedAt: string
+      theme: ThemePreference
+      books: Book[]
+    }
+
+    expect(backup.version).toBe(1)
+    expect(backup.exportedAt).toBeTruthy()
+    expect(backup.theme).toBe('dark')
+    expect(backup.books).toHaveLength(1)
+    expect(backup.books[0]?.title).toBe('Backup Book')
+  })
+
+  it('previews and imports a backup in merge mode without replacing the current theme', async () => {
+    const store = useBookStore()
+    await store.initialize()
+
+    store.addBook({ title: 'Local Book', author: 'Local Author', totalPages: 120, status: 'TO_READ' })
+    store.setTheme('dark')
+
+    const mergePreview = store.previewBackup(JSON.stringify({
+      version: 1,
+      exportedAt: '2026-04-16T10:00:00.000Z',
+      theme: 'light',
+      books: [
+        {
+          id: 'imported-book',
+          title: 'Imported Book',
+          author: 'Remote Author',
+          totalPages: 320,
+          currentPage: 150,
+          status: 'READING',
+          tags: [],
+          logs: [],
+          createdAt: '2026-04-10T00:00:00.000Z',
+        },
+      ],
+    }))
+
+    expect(mergePreview.ok).toBe(true)
+    if (!mergePreview.ok) return
+
+    expect(mergePreview.preview.totalBooks).toBe(1)
+    expect(mergePreview.preview.readingBooks).toBe(1)
+
+    expect(store.importBackup(mergePreview.payload, 'merge')).toEqual({ ok: true })
+    await nextTick()
+
+    expect(store.books.map(book => book.title)).toEqual(['Local Book', 'Imported Book'])
+    expect(store.theme).toBe('dark')
+  })
+
+  it('imports a backup in overwrite mode and replaces books and theme', async () => {
+    const store = useBookStore()
+    await store.initialize()
+
+    store.addBook({ title: 'Existing Book', author: 'Author', totalPages: 100, status: 'TO_READ' })
+
+    const overwritePreview = store.previewBackup(JSON.stringify({
+      version: 1,
+      exportedAt: '2026-04-16T12:00:00.000Z',
+      theme: 'dark',
+      books: [
+        {
+          id: 'replacement-book',
+          title: 'Replacement Book',
+          author: 'New Author',
+          totalPages: 220,
+          currentPage: 220,
+          status: 'READ',
+          tags: ['classic'],
+          logs: [],
+          createdAt: '2026-04-11T00:00:00.000Z',
+        },
+      ],
+    }))
+
+    expect(overwritePreview.ok).toBe(true)
+    if (!overwritePreview.ok) return
+
+    expect(store.importBackup(overwritePreview.payload, 'overwrite')).toEqual({ ok: true })
+    await nextTick()
+
+    expect(store.books).toHaveLength(1)
+    expect(store.books[0]?.title).toBe('Replacement Book')
+    expect(store.theme).toBe('dark')
+  })
+
   it('deletes books safely and allows undo within the grace period', async () => {
     const store = useBookStore()
     await store.initialize()

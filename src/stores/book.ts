@@ -14,16 +14,40 @@ import {
   toTrimmedText,
   normalizeRating,
   clamp,
+  normalizeBookRecord,
+  normalizeTheme,
 } from './bookPersistenceUtils'
 import { getBookRepository } from './bookRepositoryProvider'
 
 const STATUS_ORDER: BookStatus[] = ['TO_READ', 'READING', 'READ', 'STOPPED']
 const DELETE_UNDO_WINDOW_MS = 5000
+const BACKUP_VERSION = 1
 
 type PendingDeletion = {
   book: Book
   index: number
 }
+
+export type BackupPayload = {
+  version: number
+  exportedAt: string
+  theme: ThemePreference
+  books: Book[]
+}
+
+export type BackupPreview = {
+  exportedAt: string
+  theme: ThemePreference
+  totalBooks: number
+  readingBooks: number
+  readBooks: number
+}
+
+export type BackupPreviewResult =
+  | { ok: true; payload: BackupPayload; preview: BackupPreview }
+  | { ok: false; message: string }
+
+export type BackupRestoreMode = 'merge' | 'overwrite'
 
 const toIsoDateString = (value: unknown) => {
   if (typeof value !== 'string' || !value) return undefined
@@ -86,6 +110,69 @@ const withStatusTransitions = (book: Book, nextStatus: BookStatus) => {
   }
 
   return nextBook
+}
+
+const createBackupPreview = (payload: BackupPayload): BackupPreview => {
+  return {
+    exportedAt: payload.exportedAt,
+    theme: payload.theme,
+    totalBooks: payload.books.length,
+    readingBooks: payload.books.filter(book => book.status === 'READING').length,
+    readBooks: payload.books.filter(book => book.status === 'READ').length,
+  }
+}
+
+const normalizeBackupPayload = (value: unknown): BackupPayload | undefined => {
+  if (Array.isArray(value)) {
+    const books = value
+      .map(item => normalizeBookRecord(item))
+      .filter((book): book is Book => Boolean(book))
+
+    return {
+      version: BACKUP_VERSION,
+      exportedAt: new Date().toISOString(),
+      theme: 'light',
+      books,
+    }
+  }
+
+  if (!value || typeof value !== 'object') return undefined
+
+  const raw = value as Partial<BackupPayload> & { books?: unknown }
+  if (!Array.isArray(raw.books)) return undefined
+
+  const books = raw.books
+    .map(item => normalizeBookRecord(item))
+    .filter((book): book is Book => Boolean(book))
+
+  const exportedAt = typeof raw.exportedAt === 'string' && !Number.isNaN(Date.parse(raw.exportedAt))
+    ? raw.exportedAt
+    : new Date().toISOString()
+
+  return {
+    version: typeof raw.version === 'number' ? raw.version : BACKUP_VERSION,
+    exportedAt,
+    theme: normalizeTheme(raw.theme),
+    books,
+  }
+}
+
+const mergeBooksById = (currentBooks: Book[], importedBooks: Book[]) => {
+  const mergedBooks = [...currentBooks]
+  const indexesById = new Map(currentBooks.map((book, index) => [book.id, index]))
+
+  importedBooks.forEach(book => {
+    const existingIndex = indexesById.get(book.id)
+    if (existingIndex === undefined) {
+      indexesById.set(book.id, mergedBooks.length)
+      mergedBooks.push(book)
+      return
+    }
+
+    mergedBooks[existingIndex] = book
+  })
+
+  return mergedBooks
 }
 
 export const useBookStore = defineStore('book', () => {
@@ -376,6 +463,49 @@ export const useBookStore = defineStore('book', () => {
     theme.value = nextTheme
   }
 
+  const exportBackup = () => {
+    const payload: BackupPayload = {
+      version: BACKUP_VERSION,
+      exportedAt: new Date().toISOString(),
+      theme: theme.value,
+      books: JSON.parse(JSON.stringify(books.value)) as Book[],
+    }
+
+    return JSON.stringify(payload, null, 2)
+  }
+
+  const previewBackup = (raw: string): BackupPreviewResult => {
+    try {
+      const parsed = JSON.parse(raw) as unknown
+      const payload = normalizeBackupPayload(parsed)
+
+      if (!payload) {
+        return { ok: false, message: 'BookLog 백업 파일 형식을 인식할 수 없습니다.' }
+      }
+
+      return {
+        ok: true,
+        payload,
+        preview: createBackupPreview(payload),
+      }
+    } catch {
+      return { ok: false, message: 'JSON 백업 파일을 읽을 수 없습니다.' }
+    }
+  }
+
+  const importBackup = (payload: BackupPayload, mode: BackupRestoreMode): StoreActionResult => {
+    clearPendingDeletion()
+    books.value = mode === 'overwrite'
+      ? payload.books
+      : mergeBooksById(books.value, payload.books)
+
+    if (mode === 'overwrite') {
+      theme.value = payload.theme
+    }
+
+    return { ok: true }
+  }
+
   return {
     books,
     theme,
@@ -394,5 +524,8 @@ export const useBookStore = defineStore('book', () => {
     deleteBook,
     undoDeleteBook,
     setTheme,
+    exportBackup,
+    previewBackup,
+    importBackup,
   }
 })

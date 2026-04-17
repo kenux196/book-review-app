@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import { Book as BookIcon, ChevronDown, Plus, Search, Star } from 'lucide-vue-next'
 import { useBookStore } from '../stores/book'
-import type { BookDraft, BookSortKey, BookStatus } from '../types/book'
+import type { Book, BookDraft, BookSortKey, BookStatus } from '../types/book'
 
 const bookStore = useBookStore()
 
@@ -11,6 +11,10 @@ const statusFilter = ref<BookStatus | 'ALL'>('ALL')
 const sortKey = ref<BookSortKey>('CREATED_AT_DESC')
 const showAddForm = ref(false)
 const addError = ref('')
+const addSuccessMessage = ref('')
+const addSuccessDetail = ref('')
+const lastAddedBookId = ref('')
+let addSuccessTimer: ReturnType<typeof setTimeout> | null = null
 
 const createInitialDraft = (): BookDraft => ({
   title: '',
@@ -34,7 +38,7 @@ const addStatusOptions: { value: BookStatus; label: string; description: string 
   { value: 'TO_READ', label: '읽을 책', description: '읽고 싶은 책으로 저장하고 페이지는 0부터 시작합니다.' },
   { value: 'READING', label: '읽는 중', description: '지금 읽는 책으로 저장하고 현재 읽은 페이지를 함께 기록합니다.' },
   { value: 'READ', label: '완독', description: '완독한 책으로 저장합니다. 저장 시 전체 페이지까지 자동 반영됩니다.' },
-  { value: 'STOPPED', label: '중단', description: '중단한 책으로 저장하고 마지막으로 읽은 페이지를 남깁니다.' },
+  { value: 'STOPPED', label: '보류 중', description: '잠시 멈춘 책으로 저장하고 마지막으로 읽은 페이지를 남깁니다.' },
 ]
 
 const statusOrder: Record<BookStatus, number> = {
@@ -89,7 +93,7 @@ const progressFieldLabel = computed(() => {
 
 const progressFieldDescription = computed(() => {
   return newBook.value.status === 'STOPPED'
-    ? '중단하기 전 마지막으로 읽은 페이지를 입력하세요.'
+    ? '보류하기 전 마지막으로 읽은 페이지를 입력하세요.'
     : '현재 어디까지 읽었는지 입력하세요.'
 })
 
@@ -110,12 +114,48 @@ const resetForm = () => {
   addError.value = ''
 }
 
+const clearAddSuccess = () => {
+  addSuccessMessage.value = ''
+  addSuccessDetail.value = ''
+  lastAddedBookId.value = ''
+
+  if (addSuccessTimer) {
+    clearTimeout(addSuccessTimer)
+    addSuccessTimer = null
+  }
+}
+
+const isBookVisibleInCurrentView = (book: Book) => {
+  const query = searchQuery.value.trim().toLowerCase()
+  const matchesSearch = !query ||
+    book.title.toLowerCase().includes(query) ||
+    book.author.toLowerCase().includes(query) ||
+    book.tags.some(tag => tag.toLowerCase().includes(query))
+  const matchesStatus = statusFilter.value === 'ALL' || book.status === statusFilter.value
+
+  return matchesSearch && matchesStatus
+}
+
 const handleAddBook = () => {
   const result = bookStore.addBook(newBook.value)
 
   if (!result.ok) {
     addError.value = result.message
     return
+  }
+
+  const addedBook = bookStore.books[bookStore.books.length - 1]
+
+  if (addedBook) {
+    clearAddSuccess()
+    lastAddedBookId.value = addedBook.id
+    addSuccessMessage.value = `"${addedBook.title}"이(가) 서재에 추가되었습니다.`
+    addSuccessDetail.value = isBookVisibleInCurrentView(addedBook)
+      ? '현재 목록에서 바로 확인할 수 있습니다.'
+      : '현재 검색어나 상태 필터 때문에 목록에 보이지 않을 수 있습니다.'
+    addSuccessTimer = setTimeout(() => {
+      clearAddSuccess()
+    }, 4000)
   }
 
   resetForm()
@@ -144,9 +184,15 @@ const getStatusLabel = (status: BookStatus) => {
     case 'READ':
       return '완독'
     case 'STOPPED':
-      return '중단'
+      return '보류 중'
   }
 }
+
+onBeforeUnmount(() => {
+  if (addSuccessTimer) {
+    clearTimeout(addSuccessTimer)
+  }
+})
 </script>
 
 <template>
@@ -284,6 +330,32 @@ const getStatusLabel = (status: BookStatus) => {
       </div>
     </section>
 
+    <section
+      v-if="addSuccessMessage"
+      class="flex flex-col gap-3 rounded-[24px] border border-emerald-200/70 bg-emerald-50/80 p-4 text-sm text-emerald-900 shadow-sm dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100 sm:flex-row sm:items-center sm:justify-between"
+    >
+      <div class="space-y-1">
+        <p class="font-semibold">{{ addSuccessMessage }}</p>
+        <p class="text-emerald-800/80 dark:text-emerald-100/80">{{ addSuccessDetail }}</p>
+      </div>
+      <div class="flex gap-2">
+        <RouterLink
+          v-if="lastAddedBookId"
+          :to="`/books/${lastAddedBookId}`"
+          class="inline-flex h-10 items-center justify-center rounded-2xl bg-emerald-600 px-4 font-semibold text-white transition hover:bg-emerald-700"
+        >
+          바로 보기
+        </RouterLink>
+        <button
+          type="button"
+          class="inline-flex h-10 items-center justify-center rounded-2xl border border-emerald-300/70 px-4 font-medium transition hover:bg-white/50 dark:border-emerald-400/30 dark:hover:bg-emerald-500/10"
+          @click="clearAddSuccess"
+        >
+          닫기
+        </button>
+      </div>
+    </section>
+
     <section class="grid gap-3 rounded-[28px] border border-border/70 bg-card/80 p-4 shadow-sm md:grid-cols-[minmax(0,1fr)_200px_200px]">
       <label class="relative">
         <Search class="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -303,7 +375,7 @@ const getStatusLabel = (status: BookStatus) => {
           <option value="TO_READ">읽을 책</option>
           <option value="READING">읽는 중</option>
           <option value="READ">완독</option>
-          <option value="STOPPED">중단</option>
+          <option value="STOPPED">보류 중</option>
         </select>
         <ChevronDown class="pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
       </label>

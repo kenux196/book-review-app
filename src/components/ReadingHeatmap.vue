@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import {
   addDays,
   endOfYear,
@@ -16,6 +16,7 @@ import { useBookStore } from '../stores/book'
 const bookStore = useBookStore()
 const currentYear = ref(new Date().getFullYear())
 const today = startOfDay(new Date())
+const selectedDay = ref<DayCell | null>(null)
 
 // 날짜별 읽은 페이지 합산
 const activityMap = computed(() => {
@@ -41,7 +42,12 @@ const goToNextYear = () => {
   }
 }
 
+const goToCurrentYear = () => {
+  currentYear.value = today.getFullYear()
+}
+
 const isNextDisabled = computed(() => currentYear.value >= today.getFullYear())
+const isCurrentYear = computed(() => currentYear.value === today.getFullYear())
 
 type DayCell = { date: Date; dateKey: string; pages: number; isFuture: boolean }
 type WeekRow = (DayCell | null)[]
@@ -111,6 +117,22 @@ const getCellColor = (day: DayCell) => {
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
 
+const getDaySummary = (day: DayCell) => {
+  if (day.isFuture) {
+    return `${day.dateKey}은 아직 오지 않은 날짜입니다.`
+  }
+
+  if (day.pages === 0) {
+    return `${day.dateKey}에는 기록된 독서 페이지가 없습니다.`
+  }
+
+  return `${day.dateKey}에 ${day.pages}페이지를 읽었습니다.`
+}
+
+const selectDay = (day: DayCell) => {
+  selectedDay.value = day
+}
+
 // 현재 선택된 연도의 통계
 const yearStats = computed(() => {
   let activeDays = 0
@@ -124,6 +146,17 @@ const yearStats = computed(() => {
     }
   }
   return { activeDays, totalPages }
+})
+
+const selectedDaySummary = computed(() => {
+  if (!selectedDay.value) return '셀을 누르거나 키보드로 포커스를 이동하면 날짜별 기록을 확인할 수 있습니다.'
+  return getDaySummary(selectedDay.value)
+})
+
+watch(currentYear, nextYear => {
+  if (selectedDay.value?.date.getFullYear() !== nextYear) {
+    selectedDay.value = null
+  }
 })
 </script>
 
@@ -140,14 +173,24 @@ const yearStats = computed(() => {
         <div class="flex items-center gap-2 rounded-lg border border-border/50 bg-background/50 p-1">
           <button
             @click="goToPrevYear"
+            aria-label="이전 연도"
             class="flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-accent-foreground"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
           </button>
           <span class="px-2 text-sm font-medium">{{ currentYear }}년</span>
           <button
+            @click="goToCurrentYear"
+            :disabled="isCurrentYear"
+            aria-label="현재 연도로 이동"
+            class="inline-flex h-7 items-center justify-center rounded-md px-2 text-xs font-semibold transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-40 disabled:hover:bg-transparent"
+          >
+            올해
+          </button>
+          <button
             @click="goToNextYear"
             :disabled="isNextDisabled"
+            aria-label="다음 연도"
             class="flex h-7 w-7 items-center justify-center rounded-md transition-colors hover:bg-accent hover:text-accent-foreground disabled:opacity-30 disabled:hover:bg-transparent"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
@@ -192,18 +235,28 @@ const yearStats = computed(() => {
             :key="wi"
             class="min-w-0 flex-1 px-[1.5px]"
           >
-            <div
+            <button
               v-if="week[di]"
-              :title="`${week[di]!.dateKey}: ${week[di]!.pages}p 읽음`"
+              type="button"
+              :title="getDaySummary(week[di]!)"
+              :aria-label="getDaySummary(week[di]!)"
               :class="[
-                'aspect-square w-full rounded-[3px] transition-all hover:scale-110 hover:ring-2 hover:ring-primary/20',
+                'aspect-square w-full rounded-[3px] transition-all hover:scale-110 hover:ring-2 hover:ring-primary/20 focus:scale-110 focus:outline-none focus:ring-2 focus:ring-primary/40',
+                selectedDay?.dateKey === week[di]!.dateKey ? 'ring-2 ring-primary/40' : '',
                 getCellColor(week[di]!),
               ]"
+              @click="selectDay(week[di]!)"
+              @focus="selectDay(week[di]!)"
             />
             <div v-else class="aspect-square w-full bg-transparent" />
           </div>
         </div>
       </div>
+    </div>
+
+    <div class="mt-4 rounded-[20px] border border-border/60 bg-background/70 px-4 py-3">
+      <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">선택한 날짜</p>
+      <p class="mt-2 text-sm leading-6 text-foreground/90">{{ selectedDaySummary }}</p>
     </div>
 
     <!-- 범례 -->

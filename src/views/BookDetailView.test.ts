@@ -210,6 +210,11 @@ describe('BookDetailView', () => {
     expect(store.books[0]!.rating).toBe(4)
     expect(store.books[0]!.review).toBe('Excellent ending')
     expect(wrapper.text()).toContain('리뷰와 별점을 저장했습니다.')
+
+    vi.advanceTimersByTime(2500)
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('리뷰와 별점을 저장했습니다.')
   })
 
   it('shows an in-app delete confirmation and restores the book when undo is clicked', async () => {

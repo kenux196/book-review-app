@@ -43,6 +43,8 @@ describe('BookListView', () => {
     expect(store.books[0]).toBeDefined()
     expect(store.books[0]!.title).toBe('New Book')
     expect(store.books[0]!.coverUrl).toBe('https://example.com/book.jpg')
+    expect(wrapper.text()).toContain('"New Book"이(가) 서재에 추가되었습니다.')
+    expect(wrapper.text()).toContain('현재 목록에서 바로 확인할 수 있습니다.')
   })
 
   it('captures initial reading status and progress when adding a book', async () => {
@@ -161,6 +163,31 @@ describe('BookListView', () => {
     const titles = wrapper.findAll('h2').map(node => node.text())
     expect(titles[0]).toBe('Alpha')
     expect(titles[1]).toBe('Zoo')
+  })
+
+  it('shows a hidden-by-filter notice after adding a book outside the current filter', async () => {
+    const router = createTestRouter()
+    await router.push('/books')
+    await router.isReady()
+
+    const wrapper = mount(BookListView, {
+      global: { plugins: [router] },
+    })
+
+    const selects = wrapper.findAll('select')
+    expect(selects[0]).toBeDefined()
+    await selects[0]!.setValue('READING')
+
+    await wrapper.find('button').trigger('click')
+    await wrapper.find('input[placeholder="책 제목"]').setValue('Paused Book')
+    await wrapper.find('input[placeholder="저자명"]').setValue('Author')
+    await wrapper.find('input[placeholder="전체 페이지 수"]').setValue('210')
+    await wrapper.find('select[aria-label="초기 상태"]').setValue('TO_READ')
+
+    const saveButton = wrapper.findAll('button').find(button => button.text() === '저장')
+    await saveButton?.trigger('click')
+
+    expect(wrapper.text()).toContain('현재 검색어나 상태 필터 때문에 목록에 보이지 않을 수 있습니다.')
   })
 
   it('renders fallback empty state copy when no result matches', async () => {

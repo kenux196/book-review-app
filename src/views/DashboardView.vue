@@ -1,21 +1,115 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { BookOpen, CheckCircle2, Clock3, LibraryBig, Sparkles } from 'lucide-vue-next'
+import { computed, ref } from 'vue'
+import { BookCopy, BookOpen, CheckCircle2, Download, LibraryBig, RotateCcw, Sparkles, Upload } from 'lucide-vue-next'
 import { useBookStore } from '../stores/book'
+import type { BackupPayload, BackupPreview, BackupRestoreMode } from '../stores/book'
 import ReadingHeatmap from '../components/ReadingHeatmap.vue'
 import MonthlyStats from '../components/MonthlyStats.vue'
 
 const bookStore = useBookStore()
+const backupFileInput = ref<HTMLInputElement | null>(null)
+const backupMessage = ref('')
+const backupError = ref('')
+const importFileName = ref('')
+const importMode = ref<BackupRestoreMode>('merge')
+const importPayload = ref<BackupPayload | null>(null)
+const importPreview = ref<BackupPreview | null>(null)
 
 const totalPagesRead = computed(() => {
   return bookStore.books.reduce((sum, book) => sum + book.currentPage, 0)
 })
 
+const featuredReadingBook = computed(() => {
+  return [...bookStore.readingBooks].sort((left, right) => {
+    const leftLastActivity = left.logs[left.logs.length - 1]?.date ?? left.startDate ?? left.createdAt
+    const rightLastActivity = right.logs[right.logs.length - 1]?.date ?? right.startDate ?? right.createdAt
+    return rightLastActivity.localeCompare(leftLastActivity)
+  })[0]
+})
+
 const readingStreakHint = computed(() => {
-  if (bookStore.readingBooks.length > 0) return '진행 중인 책의 로그를 추가해 흐름을 끊기지 않게 유지하세요.'
+  if (featuredReadingBook.value) {
+    return `${featuredReadingBook.value.title}의 최근 페이지에서 바로 이어 읽을 수 있습니다.`
+  }
   if (bookStore.books.length > 0) return '읽을 책 하나를 Reading 상태로 옮겨 오늘의 독서를 시작해 보세요.'
   return '첫 책을 등록하면 대시보드에 독서 현황이 쌓이기 시작합니다.'
 })
+
+const nextActionLink = computed(() => {
+  return featuredReadingBook.value ? `/books/${featuredReadingBook.value.id}` : '/books'
+})
+
+const nextActionLabel = computed(() => {
+  return featuredReadingBook.value ? '이어 읽기' : '서재 열기'
+})
+
+const resetImportState = () => {
+  importFileName.value = ''
+  importPayload.value = null
+  importPreview.value = null
+
+  if (backupFileInput.value) {
+    backupFileInput.value.value = ''
+  }
+}
+
+const handleExportBackup = () => {
+  const backupJson = bookStore.exportBackup()
+  const blob = new Blob([backupJson], { type: 'application/json' })
+  const downloadUrl = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  const dateStamp = new Date().toISOString().slice(0, 10)
+
+  link.href = downloadUrl
+  link.download = `booklog-backup-${dateStamp}.json`
+  link.click()
+  URL.revokeObjectURL(downloadUrl)
+
+  backupError.value = ''
+  backupMessage.value = '백업 파일을 다운로드했습니다.'
+}
+
+const handleBackupFileChange = async (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  backupMessage.value = ''
+
+  if (!file) {
+    resetImportState()
+    return
+  }
+
+  const result = bookStore.previewBackup(await file.text())
+  if (!result.ok) {
+    backupError.value = result.message
+    resetImportState()
+    return
+  }
+
+  importFileName.value = file.name
+  importPayload.value = result.payload
+  importPreview.value = result.preview
+  backupError.value = ''
+}
+
+const applyBackupImport = () => {
+  if (!importPayload.value || !importPreview.value) {
+    backupError.value = '가져올 백업 파일을 먼저 선택해 주세요.'
+    return
+  }
+
+  const result = bookStore.importBackup(importPayload.value, importMode.value)
+  if (!result.ok) {
+    backupError.value = result.message
+    return
+  }
+
+  backupError.value = ''
+  backupMessage.value = importMode.value === 'overwrite'
+    ? `${importPreview.value.totalBooks}권을 덮어써서 복원했습니다.`
+    : `${importPreview.value.totalBooks}권을 현재 서재에 병합했습니다.`
+  resetImportState()
+}
 </script>
 
 <template>
@@ -35,13 +129,19 @@ const readingStreakHint = computed(() => {
       </div>
 
       <div class="rounded-[26px] bg-muted/60 p-5">
-        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">다음 액션</p>
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">이어 읽기</p>
         <p class="mt-3 text-sm leading-6 text-foreground/90">{{ readingStreakHint }}</p>
+        <div v-if="featuredReadingBook" class="mt-4 rounded-2xl bg-background px-4 py-3">
+          <p class="text-sm font-semibold">{{ featuredReadingBook.title }}</p>
+          <p class="mt-1 text-xs text-muted-foreground">
+            {{ featuredReadingBook.currentPage }} / {{ featuredReadingBook.totalPages }} 페이지 · 로그 {{ featuredReadingBook.logs.length }}개
+          </p>
+        </div>
         <RouterLink
-          to="/books"
+          :to="nextActionLink"
           class="mt-5 inline-flex h-11 items-center justify-center rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
         >
-          서재 열기
+          {{ nextActionLabel }}
         </RouterLink>
       </div>
     </section>
@@ -68,7 +168,7 @@ const readingStreakHint = computed(() => {
       <article class="rounded-[26px] border border-border/70 bg-card/90 p-5 shadow-sm">
         <div class="flex items-center justify-between">
           <p class="text-sm font-medium text-muted-foreground">누적 페이지</p>
-          <Clock3 class="h-4 w-4 text-muted-foreground" />
+          <BookCopy class="h-4 w-4 text-muted-foreground" />
         </div>
         <p class="mt-4 text-3xl font-semibold">{{ totalPagesRead }}</p>
         <p class="mt-2 text-sm text-muted-foreground">전체 책에서 누적한 페이지 수</p>
@@ -79,6 +179,105 @@ const readingStreakHint = computed(() => {
       <ReadingHeatmap />
       <MonthlyStats />
     </div>
+
+    <section class="grid gap-6 rounded-[30px] border border-border/70 bg-card/90 p-6 shadow-sm lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div class="space-y-4">
+        <div>
+          <h2 class="text-2xl font-semibold tracking-tight">백업 및 복원</h2>
+          <p class="mt-2 text-sm leading-6 text-muted-foreground">
+            브라우저를 바꾸거나 데이터를 정리하기 전에 전체 서재를 JSON 파일로 내보내세요. 가져오기 전에는 책 수와 상태를 미리 확인할 수 있습니다.
+          </p>
+        </div>
+
+        <div class="flex flex-wrap gap-3">
+          <button
+            type="button"
+            class="inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-primary px-4 text-sm font-semibold text-primary-foreground"
+            @click="handleExportBackup"
+          >
+            <Download class="h-4 w-4" />
+            JSON 백업 다운로드
+          </button>
+
+          <label class="inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-2xl border border-border bg-background px-4 text-sm font-semibold text-foreground transition hover:bg-muted">
+            <Upload class="h-4 w-4" />
+            백업 파일 선택
+            <input
+              ref="backupFileInput"
+              type="file"
+              accept="application/json"
+              class="sr-only"
+              @change="handleBackupFileChange"
+            >
+          </label>
+        </div>
+
+        <p v-if="backupMessage" class="text-sm text-emerald-600 dark:text-emerald-400">{{ backupMessage }}</p>
+        <p v-if="backupError" class="text-sm text-rose-600 dark:text-rose-400">{{ backupError }}</p>
+      </div>
+
+      <div class="rounded-[26px] bg-muted/60 p-5">
+        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">복원 미리보기</p>
+        <div v-if="importPreview" class="mt-4 space-y-4">
+          <div>
+            <p class="text-sm font-semibold text-foreground">{{ importFileName }}</p>
+            <p class="mt-1 text-xs text-muted-foreground">
+              내보낸 시각 {{ new Date(importPreview.exportedAt).toLocaleString('ko-KR') }}
+            </p>
+          </div>
+
+          <dl class="grid grid-cols-2 gap-3 text-sm">
+            <div class="rounded-2xl bg-background px-3 py-2">
+              <dt class="text-xs text-muted-foreground">총 책</dt>
+              <dd class="mt-1 font-semibold">{{ importPreview.totalBooks }}권</dd>
+            </div>
+            <div class="rounded-2xl bg-background px-3 py-2">
+              <dt class="text-xs text-muted-foreground">읽는 중</dt>
+              <dd class="mt-1 font-semibold">{{ importPreview.readingBooks }}권</dd>
+            </div>
+            <div class="rounded-2xl bg-background px-3 py-2">
+              <dt class="text-xs text-muted-foreground">완독</dt>
+              <dd class="mt-1 font-semibold">{{ importPreview.readBooks }}권</dd>
+            </div>
+            <div class="rounded-2xl bg-background px-3 py-2">
+              <dt class="text-xs text-muted-foreground">테마</dt>
+              <dd class="mt-1 font-semibold">{{ importPreview.theme === 'dark' ? '다크' : '라이트' }}</dd>
+            </div>
+          </dl>
+
+          <fieldset class="space-y-2">
+            <legend class="text-sm font-semibold">복원 방식</legend>
+            <label class="flex items-start gap-3 rounded-2xl border border-border bg-background px-3 py-3">
+              <input v-model="importMode" type="radio" value="merge" class="mt-1" >
+              <span>
+                <span class="block text-sm font-semibold">병합</span>
+                <span class="block text-xs leading-5 text-muted-foreground">현재 서재를 유지한 채 같은 ID는 덮어쓰고 새 책은 추가합니다.</span>
+              </span>
+            </label>
+            <label class="flex items-start gap-3 rounded-2xl border border-border bg-background px-3 py-3">
+              <input v-model="importMode" type="radio" value="overwrite" class="mt-1" >
+              <span>
+                <span class="block text-sm font-semibold">덮어쓰기</span>
+                <span class="block text-xs leading-5 text-muted-foreground">현재 서재와 테마를 백업 파일 내용으로 완전히 교체합니다.</span>
+              </span>
+            </label>
+          </fieldset>
+
+          <button
+            type="button"
+            class="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-foreground px-4 text-sm font-semibold text-background"
+            @click="applyBackupImport"
+          >
+            <RotateCcw class="h-4 w-4" />
+            선택한 방식으로 복원하기
+          </button>
+        </div>
+
+        <div v-else class="mt-4 rounded-2xl border border-dashed border-border bg-background/60 px-4 py-6 text-sm leading-6 text-muted-foreground">
+          백업 JSON 파일을 선택하면 복원 전 책 수와 테마를 여기에서 확인할 수 있습니다.
+        </div>
+      </div>
+    </section>
 
     <section class="space-y-4">
       <div class="flex items-center justify-between gap-4">
